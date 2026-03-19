@@ -13,6 +13,11 @@ const mockLocaleStore = {
     'research.queryPlaceholder': 'Enter a research topic or question',
     'research.run': 'Run Research',
     'research.running': 'Researching...',
+    'research.attachDocument': 'Attach Document',
+    'research.changeDocument': 'Change Document',
+    'research.clearDocument': 'Clear Document',
+    'research.documentAttached': 'Attached document',
+    'research.documentFormats': 'Supported: TXT, MD, PDF',
     'research.history': 'Research History',
     'research.loading': 'Loading...',
     'research.historySearch': 'Search research history',
@@ -29,6 +34,7 @@ const mockLocaleStore = {
     'research.viewMarkdown': 'View Markdown report',
     'research.abstract': 'Abstract',
     'research.renamePrompt': 'Rename research task',
+    'research.error.readDocument': 'Failed to read local document',
   }[key] ?? key),
 }
 
@@ -153,7 +159,57 @@ describe('ResearchPanel', () => {
     await wrapper.get('[data-test="run-research"]').trigger('click')
     await nextTick()
 
-    expect(mockResearchStore.runTask).toHaveBeenCalledWith('  graph neural networks  ', 7)
+    expect(mockResearchStore.runTask).toHaveBeenCalledWith('  graph neural networks  ', 7, undefined)
+  })
+
+  it('passes an attached local document into the research task', async () => {
+    mockChatStore.currentSession = { id: 8, title: 'Research Session' }
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': {
+            props: ['modelValue', 'disabled'],
+            emits: ['update:modelValue', 'keydown'],
+            template:
+              '<input data-test="research-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keydown="$emit(\'keydown\', $event)" />',
+          },
+          'el-button': {
+            props: ['disabled', 'loading', 'text'],
+            emits: ['click'],
+            template: '<button :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    const file = new File(['Document body'], 'notes.md', { type: 'text/markdown' })
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: vi.fn().mockResolvedValue(new TextEncoder().encode('Document body').buffer),
+    })
+
+    await wrapper.get('[data-test="research-input"]').setValue('summarize this document')
+    const fileInput = wrapper.get('[data-test="research-file-input"]')
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [file],
+      configurable: true,
+    })
+    await fileInput.trigger('change')
+    await nextTick()
+    await wrapper.find('[data-test="attach-document"]').trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === 'Run Research')?.trigger('click')
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Attached document')
+    expect(wrapper.text()).toContain('notes.md')
+    expect(mockResearchStore.runTask).toHaveBeenCalledWith(
+      'summarize this document',
+      8,
+      expect.objectContaining({
+        filename: 'notes.md',
+        mime_type: 'text/markdown',
+      }),
+    )
   })
 
   it('renders research results when a task exists', () => {

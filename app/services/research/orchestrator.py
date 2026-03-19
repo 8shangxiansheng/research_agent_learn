@@ -5,6 +5,7 @@ from typing import Any
 
 from app.services.agent import get_agent
 from app.services.tools import search_arxiv_papers
+from app.services.research.document_parser import build_document_source
 
 
 class ResearchOrchestrator:
@@ -47,16 +48,36 @@ class ResearchOrchestrator:
             f"Evidence basis: {fallback_labels}."
         ).strip()
 
-    def build_plan(self, query: str) -> list[str]:
+    def build_plan(self, query: str, has_document: bool = False) -> list[str]:
         normalized_query = query.strip()
-        return [
+        plan = [
             f"Clarify the research objective for: {normalized_query}",
-            f"Retrieve the most relevant arXiv papers for: {normalized_query}",
-            "Synthesize the evidence into a concise research summary with source-backed takeaways",
         ]
+        if has_document:
+            plan.append("Extract the key claims and evidence from the uploaded local document")
+            plan.append(f"Retrieve the most relevant external papers for: {normalized_query}")
+        else:
+            plan.append(f"Retrieve the most relevant arXiv papers for: {normalized_query}")
+        plan.append("Synthesize the evidence into a concise research summary with source-backed takeaways")
+        return plan
 
-    def retrieve_sources(self, query: str, max_sources: int = 3) -> list[dict[str, Any]]:
-        return search_arxiv_papers(query=query, max_results=max_sources)
+    def retrieve_sources(
+        self,
+        query: str,
+        max_sources: int = 3,
+        document: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        sources: list[dict[str, Any]] = []
+        remaining_sources = max_sources
+
+        if document is not None:
+            sources.append(build_document_source(document))
+            remaining_sources = max(0, max_sources - 1)
+
+        if remaining_sources > 0:
+            sources.extend(search_arxiv_papers(query=query, max_results=remaining_sources))
+
+        return sources
 
     async def synthesize_answer(self, query: str, sources: list[dict[str, Any]]) -> str:
         if not sources:
@@ -126,9 +147,16 @@ class ResearchOrchestrator:
         lines.extend(["## Synthesis", "", answer.strip(), ""])
         return "\n".join(lines).strip() + "\n"
 
-    async def run(self, query: str, max_sources: int = 3) -> dict[str, Any]:
-        plan = self.build_plan(query)
-        sources = self._annotate_sources(self.retrieve_sources(query, max_sources=max_sources))
+    async def run(
+        self,
+        query: str,
+        max_sources: int = 3,
+        document: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        plan = self.build_plan(query, has_document=document is not None)
+        sources = self._annotate_sources(
+            self.retrieve_sources(query, max_sources=max_sources, document=document)
+        )
         answer = await self.synthesize_answer(query, sources)
         report_markdown = self.build_report(query, plan, sources, answer)
         return {

@@ -1,3 +1,4 @@
+from base64 import b64encode
 from collections.abc import Generator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -433,6 +434,87 @@ def test_research_task_returns_structured_result(
     assert detail_response.json()["session_id"] == session_id
 
 
+def test_research_task_accepts_local_document_context(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen_document: dict[str, str] = {}
+
+    class FakeResearchOrchestrator:
+        async def run(
+            self,
+            query: str,
+            max_sources: int = 3,
+            document: dict[str, str] | None = None,
+        ):
+            assert query == "summarize the uploaded notes"
+            assert max_sources == 2
+            assert document is not None
+            seen_document.update(document)
+            return {
+                "query": query,
+                "status": "completed",
+                "generated_at": "2026-03-19T10:00:00Z",
+                "report_filename": "uploaded-notes.md",
+                "plan": ["Read the local document", "Retrieve supporting papers", "Write brief"],
+                "sources": [
+                    {
+                        "source_id": "local-document-1",
+                        "citation_label": "S1",
+                        "title": "notes.md",
+                        "authors": [],
+                        "abstract": "Document body.",
+                        "published_at": "2026-03-19T10:00:00Z",
+                        "url": "local://notes.md",
+                        "source_type": "local_document",
+                        "score": 100,
+                        "document_text": "Document body.",
+                        "document_filename": "notes.md",
+                    }
+                ],
+                "answer": "The uploaded notes focus on local evidence. [S1]",
+                "report_markdown": "# Research Brief\n\nThe uploaded notes focus on local evidence. [S1]\n",
+            }
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    response = client.post(
+        "/api/research/tasks",
+        json={
+            "query": "summarize the uploaded notes",
+            "max_sources": 2,
+            "document": {
+                "filename": "notes.md",
+                "mime_type": "text/markdown",
+                "content_base64": b64encode(b"Document body.").decode("ascii"),
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert seen_document["filename"] == "notes.md"
+    assert seen_document["text"] == "Document body."
+    assert response.json()["sources"][0]["source_type"] == "local_document"
+    assert response.json()["sources"][0]["title"] == "notes.md"
+
+
+def test_research_task_rejects_unsupported_document_type(client: TestClient) -> None:
+    response = client.post(
+        "/api/research/tasks",
+        json={
+            "query": "summarize spreadsheet",
+            "document": {
+                "filename": "notes.csv",
+                "mime_type": "text/csv",
+                "content_base64": b64encode(b"col1,col2").decode("ascii"),
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unsupported document type. Please upload TXT, MD, or PDF"
+
+
 def test_research_task_rejects_empty_query(client: TestClient) -> None:
     response = client.post(
         "/api/research/tasks",
@@ -587,6 +669,95 @@ def test_rerun_research_task_refreshes_persisted_result(
     assert rerun_response.json()["answer"] == "Updated answer. [S1]"
     assert rerun_response.json()["plan"] == ["Refresh the topic"]
     assert rerun_response.json()["sources"][0]["title"] == "Updated Graph Neural Networks"
+
+
+def test_rerun_research_task_preserves_local_document_context(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen_documents: list[dict[str, str] | None] = []
+    answers = iter([
+        {
+            "query": "uploaded research",
+            "status": "completed",
+            "generated_at": "2026-03-19T10:00:00Z",
+            "report_filename": "uploaded-research.md",
+            "plan": ["Read local document"],
+            "sources": [
+                {
+                    "source_id": "local-document-1",
+                    "citation_label": "S1",
+                    "title": "notes.md",
+                    "authors": [],
+                    "abstract": "Initial local text.",
+                    "published_at": "2026-03-19T10:00:00Z",
+                    "url": "local://notes.md",
+                    "source_type": "local_document",
+                    "score": 100,
+                    "document_text": "Initial local text.",
+                    "document_filename": "notes.md",
+                }
+            ],
+            "answer": "Initial local answer. [S1]",
+            "report_markdown": "# Research Brief: uploaded research\n\nInitial local answer. [S1]\n",
+        },
+        {
+            "query": "uploaded research",
+            "status": "completed",
+            "generated_at": "2026-03-19T10:05:00Z",
+            "report_filename": "uploaded-research.md",
+            "plan": ["Re-read local document"],
+            "sources": [
+                {
+                    "source_id": "local-document-1",
+                    "citation_label": "S1",
+                    "title": "notes.md",
+                    "authors": [],
+                    "abstract": "Updated local text.",
+                    "published_at": "2026-03-19T10:05:00Z",
+                    "url": "local://notes.md",
+                    "source_type": "local_document",
+                    "score": 100,
+                    "document_text": "Initial local text.",
+                    "document_filename": "notes.md",
+                }
+            ],
+            "answer": "Updated local answer. [S1]",
+            "report_markdown": "# Research Brief: uploaded research\n\nUpdated local answer. [S1]\n",
+        },
+    ])
+
+    class FakeResearchOrchestrator:
+        async def run(
+            self,
+            query: str,
+            max_sources: int = 3,
+            document: dict[str, str] | None = None,
+        ):
+            seen_documents.append(document)
+            return next(answers)
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    task_response = client.post(
+        "/api/research/tasks",
+        json={
+            "query": "uploaded research",
+            "document": {
+                "filename": "notes.md",
+                "mime_type": "text/markdown",
+                "content_base64": b64encode(b"Initial local text.").decode("ascii"),
+            },
+        },
+    )
+    task_id = task_response.json()["id"]
+
+    rerun_response = client.post(f"/api/research/tasks/{task_id}/rerun")
+
+    assert rerun_response.status_code == 200
+    assert seen_documents[0]["filename"] == "notes.md"
+    assert seen_documents[1]["text"] == "Initial local text."
+    assert rerun_response.json()["answer"] == "Updated local answer. [S1]"
 
 
 def test_rerun_research_task_as_new_creates_new_history_item(

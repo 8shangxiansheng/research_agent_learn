@@ -9,6 +9,13 @@ export interface ResearchTaskRequest {
   query: string
   max_sources?: number
   session_id?: number
+  document?: ResearchDocumentPayload
+}
+
+export interface ResearchDocumentPayload {
+  filename: string
+  content_base64: string
+  mime_type?: string
 }
 
 export interface ResearchTaskUpdateRequest {

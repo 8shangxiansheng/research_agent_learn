@@ -78,6 +78,14 @@ class ResearchTaskCreate(BaseModel):
     query: str
     max_sources: int = 3
     session_id: Optional[int] = None
+    document: Optional["ResearchDocumentInput"] = None
+
+
+class ResearchDocumentInput(BaseModel):
+    """Schema for a locally uploaded research document."""
+    filename: str
+    content_base64: str
+    mime_type: Optional[str] = None
 
 
 class ResearchTaskUpdate(BaseModel):

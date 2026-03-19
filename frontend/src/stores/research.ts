@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import type { ResearchTaskResult } from '@/api/research'
+import type { ResearchDocumentPayload, ResearchTaskResult } from '@/api/research'
 import { deleteResearchTask, getSessionResearchTasks, rerunResearchTask, rerunResearchTaskAsNew, runResearchTask, updateResearchTask } from '@/api/research'
 import { useLocaleStore } from '@/stores/locale'
 import { resolveLocalizedErrorMessage } from '@/utils/localization'
@@ -24,7 +24,11 @@ export const useResearchStore = defineStore('research', () => {
     return tasks.value.filter(task => task.query.toLowerCase().includes(normalizedQuery))
   })
 
-  async function runTask(taskQuery = query.value, sessionId?: number): Promise<void> {
+  async function runTask(
+    taskQuery = query.value,
+    sessionId?: number,
+    document?: ResearchDocumentPayload,
+  ): Promise<void> {
     const normalizedQuery = taskQuery.trim()
     if (!normalizedQuery) {
       error.value = localeStore.t('research.error.emptyQuery')
@@ -38,6 +42,7 @@ export const useResearchStore = defineStore('research', () => {
       currentTask.value = await runResearchTask({
         query: normalizedQuery,
         session_id: sessionId,
+        document,
       })
       if (currentTask.value) {
         tasks.value = [currentTask.value, ...tasks.value.filter(task => task.id !== currentTask.value?.id)]

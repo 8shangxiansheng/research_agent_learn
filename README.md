@@ -8,6 +8,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Built-in Chinese and English UI toggle with persisted locale preference
 - Locale-aware dates, times, and frontend error messages for Chinese and English users
 - Research task workflow with plan, sources, synthesis, and report output
+- Local TXT / Markdown document upload for grounding research tasks with user-provided notes
 - Research history per session with rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations
 - Session export to Markdown for note taking and sharing
@@ -24,14 +25,15 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend tests: `28` passing
-- Backend API tests: `25` passing
+- Frontend tests: `29` passing
+- Backend API tests: `28` passing
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stable inline source markers such as `[S1]`
 
 See also:
 - [API reference](docs/api.md)
 - [Retry decision note](docs/retry-decision.md)
+- [Roadmap](docs/roadmap.md)
 
 ## Architecture
 
@@ -121,6 +123,12 @@ The frontend development server default is also configured to use port `4173`, s
 - The selected language is persisted in local storage and restored on refresh
 - The current locale also affects session dates, research history timestamps, and frontend-mapped API error messages
 
+### Local Document Research
+
+- The research panel can attach one local `TXT` or `Markdown` document to ground a research task.
+- Uploaded local documents are preserved inside the resulting research task, so rerun and rerun-as-new keep the same local context.
+- `PDF` parsing is wired into the backend path, but the runtime still needs the optional `pypdf` dependency installed before PDF uploads can be parsed successfully.
+
 ### Docker Deployment
 
 1. Set up environment
@@ -160,7 +168,7 @@ docker-compose down
 | GET | /api/sessions/{id}/export/raw | Download raw Markdown content |
 | POST | /api/sessions/{id}/messages/{message_id}/retry | Regenerate the latest assistant message |
 | POST | /api/messages | Create message |
-| POST | /api/research/tasks | Run a persisted research workflow |
+| POST | /api/research/tasks | Run a persisted research workflow, optionally with one local document |
 | GET | /api/sessions/{id}/research-tasks | List research task history for a session |
 | GET | /api/research/tasks/{id} | Get one research task |
 | GET | /api/research/tasks/{id}/report | Export research report as JSON payload |

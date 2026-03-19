@@ -20,6 +20,13 @@ const backendErrorKeyMap: Record<string, string> = {
   'Only the latest assistant message can be retried': 'api.error.retryLatestOnly',
   'Retry requires a previous user message': 'api.error.retryNeedsUserMessage',
   'Research task is not associated with a session': 'api.error.researchTaskNoSession',
+  'Unsupported document type. Please upload TXT, MD, or PDF': 'api.error.documentUnsupportedType',
+  'Uploaded document is empty': 'api.error.documentEmpty',
+  'Uploaded document content is invalid': 'api.error.documentInvalid',
+  'Uploaded document filename is required': 'api.error.documentFilenameRequired',
+  'Uploaded text document must be UTF-8 encoded': 'api.error.documentEncoding',
+  'Uploaded document does not contain readable text': 'api.error.documentUnreadable',
+  'PDF parsing is unavailable because pypdf is not installed': 'api.error.documentPdfUnavailable',
 }
 
 export function formatSessionDate(date: string, locale: LocaleContext): string {

@@ -40,6 +40,39 @@
       </el-button>
     </div>
 
+    <div class="document-row">
+      <input
+        ref="documentInput"
+        data-test="research-file-input"
+        class="document-input"
+        type="file"
+        accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf"
+        @change="handleDocumentChange"
+      >
+      <el-button
+        data-test="attach-document"
+        text
+        :disabled="researchStore.isRunning"
+        @click="openDocumentPicker"
+      >
+        {{ selectedDocument ? localeStore.t('research.changeDocument') : localeStore.t('research.attachDocument') }}
+      </el-button>
+      <el-button
+        v-if="selectedDocument"
+        text
+        :disabled="researchStore.isRunning"
+        @click="clearDocument"
+      >
+        {{ localeStore.t('research.clearDocument') }}
+      </el-button>
+      <span class="document-formats">{{ localeStore.t('research.documentFormats') }}</span>
+    </div>
+
+    <div v-if="selectedDocument" class="document-chip">
+      <strong>{{ localeStore.t('research.documentAttached') }}：</strong>
+      <span>{{ selectedDocument.filename }}</span>
+    </div>
+
     <p v-if="researchStore.error" class="error-text">{{ researchStore.error }}</p>
 
     <section v-if="chatStore.currentSession" class="history-strip">
@@ -114,7 +147,15 @@
               <span>{{ formatPublishedDate(source.published_at) }}</span>
               <span v-if="source.primary_category">{{ source.primary_category }}</span>
             </div>
-            <a :href="source.url" target="_blank" rel="noreferrer">{{ source.title }}</a>
+            <a
+              v-if="isRemoteSource(source.url)"
+              :href="source.url"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {{ source.title }}
+            </a>
+            <strong v-else class="local-source-title">{{ source.title }}</strong>
             <p>{{ source.authors.slice(0, 3).join(', ') }}</p>
             <p v-if="source.citation_text" class="citation-text">{{ source.citation_text }}</p>
             <p class="abstract">{{ source.abstract.slice(0, 180) }}{{ source.abstract.length > 180 ? '...' : '' }}</p>
@@ -133,7 +174,14 @@
               <span v-if="source.journal_ref">{{ source.journal_ref }}</span>
             </div>
             <div class="source-links">
-              <a :href="source.url" target="_blank" rel="noreferrer">{{ localeStore.t('research.abstract') }}</a>
+              <a
+                v-if="isRemoteSource(source.url)"
+                :href="source.url"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {{ localeStore.t('research.abstract') }}
+              </a>
               <a v-if="source.pdf_url" :href="source.pdf_url" target="_blank" rel="noreferrer">{{ localeStore.t('common.pdf') }}</a>
             </div>
           </li>
@@ -174,6 +222,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
+import type { ResearchDocumentPayload } from '@/api/research'
 import { downloadResearchTaskReport } from '@/api/research'
 import { useChatStore } from '@/stores/chat'
 import { useLocaleStore } from '@/stores/locale'
@@ -184,9 +233,11 @@ const chatStore = useChatStore()
 const localeStore = useLocaleStore()
 const researchStore = useResearchStore()
 const query = ref(researchStore.query)
+const documentInput = ref<HTMLInputElement | null>(null)
+const selectedDocument = ref<ResearchDocumentPayload | null>(null)
 
 async function handleRun(): Promise<void> {
-  await researchStore.runTask(query.value, chatStore.currentSession?.id)
+  await researchStore.runTask(query.value, chatStore.currentSession?.id, selectedDocument.value ?? undefined)
 }
 
 async function insertIntoChat(mode: 'summary' | 'full'): Promise<void> {
@@ -239,6 +290,53 @@ function formatPublishedDate(date?: string): string {
   return formatSourceDate(date, localeStore)
 }
 
+function isRemoteSource(url: string): boolean {
+  return /^https?:\/\//.test(url)
+}
+
+function openDocumentPicker(): void {
+  documentInput.value?.click()
+}
+
+function clearDocument(): void {
+  selectedDocument.value = null
+  if (documentInput.value) {
+    documentInput.value.value = ''
+  }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
+  }
+  return btoa(binary)
+}
+
+async function handleDocumentChange(event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) {
+    selectedDocument.value = null
+    return
+  }
+
+  try {
+    const buffer = await file.arrayBuffer()
+    selectedDocument.value = {
+      filename: file.name,
+      mime_type: file.type || undefined,
+      content_base64: toBase64(new Uint8Array(buffer)),
+    }
+    researchStore.error = null
+  } catch (error) {
+    console.error(error)
+    researchStore.error = localeStore.t('research.error.readDocument')
+    clearDocument()
+  }
+}
+
 watch(
   () => chatStore.currentSession?.id ?? null,
   (sessionId) => {
@@ -286,6 +384,34 @@ watch(
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 12px;
+}
+
+.document-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.document-input {
+  display: none;
+}
+
+.document-formats {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.document-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
 }
 
 .error-text {
@@ -453,6 +579,12 @@ watch(
 .source-list a {
   color: #2563eb;
   text-decoration: none;
+  font-weight: 600;
+}
+
+.local-source-title {
+  display: inline-block;
+  color: #111827;
   font-weight: 600;
 }
 

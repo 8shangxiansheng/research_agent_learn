@@ -13,6 +13,7 @@ from app.database import get_db
 from app import crud, schemas
 from app.services.agent import get_agent
 from app.services.research import get_research_orchestrator
+from app.services.research.document_parser import parse_research_document
 
 
 # Create router with API prefix
@@ -56,6 +57,24 @@ def _build_research_message_content(task: object, mode: str = "summary") -> str:
             )
 
     return "\n".join(lines).strip()
+
+
+def _extract_document_from_task(task: object) -> dict[str, str] | None:
+    """Recover persisted local document context for reruns."""
+    for source in json.loads(task.sources_json):
+        if source.get("source_type") not in {"local_document", "local_pdf"}:
+            continue
+        document_text = source.get("document_text")
+        document_filename = source.get("document_filename")
+        if not document_text or not document_filename:
+            continue
+        return {
+            "filename": document_filename,
+            "mime_type": source.get("mime_type"),
+            "source_type": source["source_type"],
+            "text": document_text,
+        }
+    return None
 
 
 def _build_raw_markdown_response(filename: str, content: str) -> PlainTextResponse:
@@ -161,7 +180,26 @@ async def run_research_task(
         raise HTTPException(status_code=404, detail="Session not found")
 
     max_sources = max(1, min(task.max_sources, 5))
-    result = await get_research_orchestrator().run(query=query, max_sources=max_sources)
+    document = None
+    if task.document is not None:
+        try:
+            document = parse_research_document(
+                filename=task.document.filename,
+                content_base64=task.document.content_base64,
+                mime_type=task.document.mime_type,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    orchestrator = get_research_orchestrator()
+    if document is None:
+        result = await orchestrator.run(query=query, max_sources=max_sources)
+    else:
+        result = await orchestrator.run(
+            query=query,
+            max_sources=max_sources,
+            document=document,
+        )
     db_task = crud.create_research_task(
         db,
         session_id=task.session_id,
@@ -240,7 +278,16 @@ async def rerun_research_task(
         raise HTTPException(status_code=404, detail="Research task not found")
 
     max_sources = max(1, min(len(json.loads(task.sources_json)) or 3, 5))
-    result = await get_research_orchestrator().run(query=task.query, max_sources=max_sources)
+    orchestrator = get_research_orchestrator()
+    document = _extract_document_from_task(task)
+    if document is None:
+        result = await orchestrator.run(query=task.query, max_sources=max_sources)
+    else:
+        result = await orchestrator.run(
+            query=task.query,
+            max_sources=max_sources,
+            document=document,
+        )
     updated_task = crud.refresh_research_task(
         db,
         task_id,
@@ -266,7 +313,16 @@ async def rerun_research_task_as_new(
         raise HTTPException(status_code=404, detail="Research task not found")
 
     max_sources = max(1, min(len(json.loads(task.sources_json)) or 3, 5))
-    result = await get_research_orchestrator().run(query=task.query, max_sources=max_sources)
+    orchestrator = get_research_orchestrator()
+    document = _extract_document_from_task(task)
+    if document is None:
+        result = await orchestrator.run(query=task.query, max_sources=max_sources)
+    else:
+        result = await orchestrator.run(
+            query=task.query,
+            max_sources=max_sources,
+            document=document,
+        )
     new_task = crud.create_research_task(
         db,
         session_id=task.session_id,

@@ -95,9 +95,21 @@ Possible error cases:
 {
   "query": "graph neural networks for molecules",
   "max_sources": 3,
-  "session_id": 1
+  "session_id": 1,
+  "document": {
+    "filename": "notes.md",
+    "mime_type": "text/markdown",
+    "content_base64": "RG9jdW1lbnQgYm9keS4uLg=="
+  }
 }
 ```
+
+- `document` is optional.
+- Supported document types:
+  - `TXT`
+  - `MD` / `Markdown`
+  - `PDF` when the optional `pypdf` dependency is available in the runtime
+- Local documents are injected as a first-class research source and persisted with the task so that reruns keep the same local context.
 
 - Returns one `ResearchTaskResponse` with:
   - `id`
@@ -116,6 +128,7 @@ Constraints:
 - `query` cannot be empty.
 - `max_sources` is clamped to `1..5`.
 - `session_id`, when provided, must exist.
+- Unsupported or unreadable document payloads return `400`.
 
 `GET /api/sessions/{session_id}/research-tasks`
 
