@@ -6,6 +6,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 
 - Multi-session chat interface for organizing research conversations
 - Built-in Chinese and English UI toggle with persisted locale preference
+- Locale-aware dates, times, and frontend error messages for Chinese and English users
 - Research task workflow with plan, sources, synthesis, and report output
 - Research history per session with rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations
@@ -22,7 +23,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend component tests: `24` passing
+- Frontend tests: `27` passing
 - Backend API tests: `25` passing
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stable inline source markers such as `[S1]`
@@ -112,6 +113,12 @@ npm run dev -- --host 127.0.0.1 --port 4173
 The frontend development server default is also configured to use port `4173`, so `npm run dev` and `bash scripts/dev-up.sh` stay aligned.
 
 7. Open http://127.0.0.1:4173 in browser
+
+### Language Toggle
+
+- Use the header toggle to switch between `中文` and `English`
+- The selected language is persisted in local storage and restored on refresh
+- The current locale also affects session dates, research history timestamps, and frontend-mapped API error messages
 
 ### Docker Deployment
 

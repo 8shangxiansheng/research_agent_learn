@@ -51,6 +51,15 @@ const messages = {
     'chat.error.websocket': 'WebSocket connection error',
     'chat.error.websocketUnknown': 'Unknown error',
     'chat.error.websocketDisconnected': 'WebSocket not connected',
+    'api.error.sessionNotFound': 'Session not found',
+    'api.error.researchTaskNotFound': 'Research task not found',
+    'api.error.researchQueryEmpty': 'Research query cannot be empty',
+    'api.error.messageNotFound': 'Message not found',
+    'api.error.retryAssistantOnly': 'Only assistant messages can be retried',
+    'api.error.retryLatestOnly': 'Only the latest assistant message can be retried',
+    'api.error.retryNeedsUserMessage': 'Retry requires a previous user message',
+    'api.error.researchTaskNoSession': 'Research task is not associated with a session',
+    'api.error.retryFailed': 'Retry failed',
     'message.you': 'You',
     'message.assistant': 'Assistant',
     'message.research': 'Research',
@@ -133,6 +142,15 @@ const messages = {
     'chat.error.websocket': 'WebSocket 连接错误',
     'chat.error.websocketUnknown': '未知错误',
     'chat.error.websocketDisconnected': 'WebSocket 未连接',
+    'api.error.sessionNotFound': '会话不存在',
+    'api.error.researchTaskNotFound': '研究任务不存在',
+    'api.error.researchQueryEmpty': '研究问题不能为空',
+    'api.error.messageNotFound': '消息不存在',
+    'api.error.retryAssistantOnly': '只有助手消息可以重试',
+    'api.error.retryLatestOnly': '只能重试最新一条助手消息',
+    'api.error.retryNeedsUserMessage': '重试前必须有上一条用户消息',
+    'api.error.researchTaskNoSession': '该研究任务没有关联会话',
+    'api.error.retryFailed': '重试失败',
     'message.you': '你',
     'message.assistant': '助手',
     'message.research': '研究',
@@ -223,8 +241,9 @@ export const useLocaleStore = defineStore('locale', () => {
     setLocale(locale.value === 'en' ? 'zh' : 'en')
   }
 
-  function t(key: TranslationKey): string {
-    return messages[locale.value][key] ?? messages.en[key]
+  function t(key: string): string {
+    const normalizedKey = key as TranslationKey
+    return messages[locale.value][normalizedKey] ?? messages.en[normalizedKey] ?? key
   }
 
   return {

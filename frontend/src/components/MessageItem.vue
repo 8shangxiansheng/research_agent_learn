@@ -42,6 +42,7 @@ import MarkdownIt from 'markdown-it'
 import { ChatDotSquare, User } from '@element-plus/icons-vue'
 import type { Message } from '@/api/sessions'
 import { useLocaleStore } from '@/stores/locale'
+import { formatMessageTime } from '@/utils/localization'
 
 const props = withDefaults(defineProps<{
   message: Message
@@ -86,8 +87,7 @@ const showCollapseToggle = computed(() => {
 })
 
 function formatTime(date: string): string {
-  const d = new Date(date)
-  return d.toLocaleTimeString(localeStore.timeLocale, { hour: '2-digit', minute: '2-digit' })
+  return formatMessageTime(date, localeStore)
 }
 </script>
 

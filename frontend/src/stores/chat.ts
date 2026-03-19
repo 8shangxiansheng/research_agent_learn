@@ -7,6 +7,7 @@ import type { Session, Message } from '@/api/sessions'
 import * as api from '@/api/sessions'
 import { ChatWebSocket, type WebSocketMessage } from '@/api/websocket'
 import { useLocaleStore } from '@/stores/locale'
+import { resolveLocalizedErrorMessage } from '@/utils/localization'
 
 export const useChatStore = defineStore('chat', () => {
   const localeStore = useLocaleStore()
@@ -39,7 +40,7 @@ export const useChatStore = defineStore('chat', () => {
       sessionSearchQuery.value = query
       sessions.value = await api.getSessions(query)
     } catch (e) {
-      error.value = localeStore.t('chat.error.fetchSessions')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.fetchSessions')
       console.error(e)
     } finally {
       isLoading.value = false
@@ -59,7 +60,7 @@ export const useChatStore = defineStore('chat', () => {
         isLoading.value = true
         messages.value = await api.getMessages(session.id)
       } catch (e) {
-        error.value = localeStore.t('chat.error.fetchMessages')
+        error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.fetchMessages')
         console.error(e)
       } finally {
         isLoading.value = false
@@ -80,7 +81,7 @@ export const useChatStore = defineStore('chat', () => {
       sessions.value.unshift(session)
       return session
     } catch (e) {
-      error.value = localeStore.t('chat.error.createSession')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.createSession')
       console.error(e)
       throw e
     } finally {
@@ -106,7 +107,7 @@ export const useChatStore = defineStore('chat', () => {
         }
       }
     } catch (e) {
-      error.value = localeStore.t('chat.error.updateSession')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.updateSession')
       console.error(e)
       throw e
     }
@@ -125,7 +126,7 @@ export const useChatStore = defineStore('chat', () => {
         disconnectWebSocket()
       }
     } catch (e) {
-      error.value = localeStore.t('chat.error.deleteSession')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.deleteSession')
       console.error(e)
       throw e
     }
@@ -142,7 +143,7 @@ export const useChatStore = defineStore('chat', () => {
       link.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      error.value = localeStore.t('chat.error.exportSession')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.exportSession')
       console.error(e)
       throw e
     }
@@ -166,7 +167,7 @@ export const useChatStore = defineStore('chat', () => {
         messages: messages.value,
       }
     } catch (e) {
-      error.value = localeStore.t('chat.error.retryAnswer')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.retryAnswer')
       console.error(e)
       throw e
     } finally {
@@ -190,7 +191,7 @@ export const useChatStore = defineStore('chat', () => {
         messages: messages.value,
       }
     } catch (e) {
-      error.value = localeStore.t('chat.error.appendResearch')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'chat.error.appendResearch')
       console.error(e)
       throw e
     }

@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import type { ResearchTaskResult } from '@/api/research'
 import { deleteResearchTask, getSessionResearchTasks, rerunResearchTask, rerunResearchTaskAsNew, runResearchTask, updateResearchTask } from '@/api/research'
 import { useLocaleStore } from '@/stores/locale'
+import { resolveLocalizedErrorMessage } from '@/utils/localization'
 
 export const useResearchStore = defineStore('research', () => {
   const localeStore = useLocaleStore()
@@ -42,7 +43,7 @@ export const useResearchStore = defineStore('research', () => {
         tasks.value = [currentTask.value, ...tasks.value.filter(task => task.id !== currentTask.value?.id)]
       }
     } catch (e) {
-      error.value = localeStore.t('research.error.run')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.run')
       console.error(e)
       throw e
     } finally {
@@ -63,7 +64,7 @@ export const useResearchStore = defineStore('research', () => {
       tasks.value = await getSessionResearchTasks(sessionId)
       currentTask.value = tasks.value[0] ?? null
     } catch (e) {
-      error.value = localeStore.t('research.error.fetchHistory')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.fetchHistory')
       console.error(e)
     } finally {
       isLoadingHistory.value = false
@@ -83,7 +84,7 @@ export const useResearchStore = defineStore('research', () => {
         currentTask.value = tasks.value[0] ?? null
       }
     } catch (e) {
-      error.value = localeStore.t('research.error.delete')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.delete')
       console.error(e)
       throw e
     }
@@ -104,7 +105,7 @@ export const useResearchStore = defineStore('research', () => {
         currentTask.value = updatedTask
       }
     } catch (e) {
-      error.value = localeStore.t('research.error.rename')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.rename')
       console.error(e)
       throw e
     }
@@ -118,7 +119,7 @@ export const useResearchStore = defineStore('research', () => {
       tasks.value = tasks.value.map(task => task.id === taskId ? updatedTask : task)
       currentTask.value = updatedTask
     } catch (e) {
-      error.value = localeStore.t('research.error.rerun')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.rerun')
       console.error(e)
       throw e
     } finally {
@@ -134,7 +135,7 @@ export const useResearchStore = defineStore('research', () => {
       tasks.value = [createdTask, ...tasks.value.filter(task => task.id !== createdTask.id)]
       currentTask.value = createdTask
     } catch (e) {
-      error.value = localeStore.t('research.error.rerunNew')
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.rerunNew')
       console.error(e)
       throw e
     } finally {

@@ -66,7 +66,7 @@
         >
           <strong>{{ task.query }}</strong>
           <div class="history-item-row">
-            <span>{{ task.generated_at.slice(0, 10) }}</span>
+            <span>{{ formatTaskDate(task.generated_at) }}</span>
             <span
               class="history-rerun"
               @click.stop="rerunTask(task.id)"
@@ -111,7 +111,7 @@
             <div class="source-meta">
               <span class="citation-chip">[{{ source.citation_label }}]</span>
               <span>{{ source.source_type }}</span>
-              <span>{{ source.published_at.slice(0, 10) }}</span>
+              <span>{{ formatPublishedDate(source.published_at) }}</span>
               <span v-if="source.primary_category">{{ source.primary_category }}</span>
             </div>
             <a :href="source.url" target="_blank" rel="noreferrer">{{ source.title }}</a>
@@ -178,6 +178,7 @@ import { downloadResearchTaskReport } from '@/api/research'
 import { useChatStore } from '@/stores/chat'
 import { useLocaleStore } from '@/stores/locale'
 import { useResearchStore } from '@/stores/research'
+import { formatHistoryDate, formatSourceDate } from '@/utils/localization'
 
 const chatStore = useChatStore()
 const localeStore = useLocaleStore()
@@ -228,6 +229,14 @@ async function exportReport(): Promise<void> {
   link.download = filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+function formatTaskDate(date: string): string {
+  return formatHistoryDate(date, localeStore)
+}
+
+function formatPublishedDate(date?: string): string {
+  return formatSourceDate(date, localeStore)
 }
 
 watch(

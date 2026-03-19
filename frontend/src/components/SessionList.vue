@@ -73,6 +73,7 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 import { useChatStore } from '@/stores/chat'
 import { useLocaleStore } from '@/stores/locale'
 import type { Session } from '@/api/sessions'
+import { formatSessionDate } from '@/utils/localization'
 
 const chatStore = useChatStore()
 const localeStore = useLocaleStore()
@@ -83,8 +84,7 @@ onMounted(() => {
 })
 
 function formatDate(date: string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString(localeStore.dateLocale, { month: 'short', day: 'numeric' })
+  return formatSessionDate(date, localeStore)
 }
 
 function handleSearch(): void {
