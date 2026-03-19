@@ -143,6 +143,11 @@ Example:
 - Re-executes one persisted research task using its current query.
 - Refreshes the stored `plan`, `sources`, `answer`, and `report_markdown` in place.
 
+`POST /api/research/tasks/{task_id}/rerun-as-new`
+
+- Re-executes one persisted research task using its current query.
+- Stores the result as a new research history item, keeping the original task unchanged.
+
 `GET /api/research/tasks/{task_id}/report`
 
 - Returns a JSON payload:

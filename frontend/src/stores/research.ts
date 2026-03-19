@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type { ResearchTaskResult } from '@/api/research'
-import { deleteResearchTask, getSessionResearchTasks, rerunResearchTask, runResearchTask, updateResearchTask } from '@/api/research'
+import { deleteResearchTask, getSessionResearchTasks, rerunResearchTask, rerunResearchTaskAsNew, runResearchTask, updateResearchTask } from '@/api/research'
 
 export const useResearchStore = defineStore('research', () => {
   const currentTask = ref<ResearchTaskResult | null>(null)
@@ -124,6 +124,22 @@ export const useResearchStore = defineStore('research', () => {
     }
   }
 
+  async function rerunTaskAsNew(taskId: number): Promise<void> {
+    try {
+      isRunning.value = true
+      error.value = null
+      const createdTask = await rerunResearchTaskAsNew(taskId)
+      tasks.value = [createdTask, ...tasks.value.filter(task => task.id !== createdTask.id)]
+      currentTask.value = createdTask
+    } catch (e) {
+      error.value = 'Failed to create a new rerun task'
+      console.error(e)
+      throw e
+    } finally {
+      isRunning.value = false
+    }
+  }
+
   function clearTask(): void {
     currentTask.value = null
     error.value = null
@@ -143,6 +159,7 @@ export const useResearchStore = defineStore('research', () => {
     selectTask,
     renameTask,
     rerunTask,
+    rerunTaskAsNew,
     removeTask,
     clearTask,
   }

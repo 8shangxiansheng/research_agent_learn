@@ -50,6 +50,7 @@ const mockResearchStore = {
   selectTask: vi.fn(),
   renameTask: vi.fn(),
   rerunTask: vi.fn(),
+  rerunTaskAsNew: vi.fn(),
   removeTask: vi.fn(),
   clearTask: vi.fn(),
 }
@@ -90,6 +91,7 @@ describe('ResearchPanel', () => {
     mockResearchStore.selectTask.mockReset()
     mockResearchStore.renameTask.mockReset()
     mockResearchStore.rerunTask.mockReset()
+    mockResearchStore.rerunTaskAsNew.mockReset()
     mockResearchStore.removeTask.mockReset()
     mockResearchStore.clearTask.mockReset()
     downloadResearchTaskReportMock.mockReset()
@@ -362,6 +364,36 @@ describe('ResearchPanel', () => {
 
     await wrapper.get('.history-rerun').trigger('click')
     expect(mockResearchStore.rerunTask).toHaveBeenCalledWith(9)
+  })
+
+  it('reruns a task as a new history item', async () => {
+    mockChatStore.currentSession = { id: 3, title: 'Session 3' }
+    mockResearchStore.tasks = [
+      {
+        id: 9,
+        query: 'attention mechanisms',
+        generated_at: '2026-03-19T10:00:00Z',
+      },
+    ]
+    mockResearchStore.filteredTasks = mockResearchStore.tasks
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': {
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            template: '<input data-test="history-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+          },
+          'el-button': {
+            template: '<button><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('.history-rerun-new').trigger('click')
+    expect(mockResearchStore.rerunTaskAsNew).toHaveBeenCalledWith(9)
   })
 
   it('inserts the selected research brief into chat with summary mode', async () => {

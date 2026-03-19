@@ -251,6 +251,30 @@ async def rerun_research_task(
     return _serialize_research_task(updated_task)
 
 
+@router.post(
+    "/research/tasks/{task_id}/rerun-as-new",
+    response_model=schemas.ResearchTaskResponse,
+    status_code=201,
+)
+async def rerun_research_task_as_new(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    """Rerun a persisted research task and store the result as a new history item."""
+    task = crud.get_research_task(db, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+
+    max_sources = max(1, min(len(json.loads(task.sources_json)) or 3, 5))
+    result = await get_research_orchestrator().run(query=task.query, max_sources=max_sources)
+    new_task = crud.create_research_task(
+        db,
+        session_id=task.session_id,
+        result=result,
+    )
+    return _serialize_research_task(new_task)
+
+
 @router.get(
     "/research/tasks/{task_id}/report",
     response_model=schemas.SessionExportResponse,

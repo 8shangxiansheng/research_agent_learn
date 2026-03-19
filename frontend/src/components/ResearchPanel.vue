@@ -74,6 +74,12 @@
               Rerun
             </span>
             <span
+              class="history-rerun-new"
+              @click.stop="rerunTaskAsNew(task.id)"
+            >
+              Rerun New
+            </span>
+            <span
               class="history-rename"
               @click.stop="renameTask(task.id, task.query)"
             >
@@ -202,6 +208,10 @@ async function renameTask(taskId: number, currentQuery: string): Promise<void> {
 
 async function rerunTask(taskId: number): Promise<void> {
   await researchStore.rerunTask(taskId)
+}
+
+async function rerunTaskAsNew(taskId: number): Promise<void> {
+  await researchStore.rerunTaskAsNew(taskId)
 }
 
 async function exportReport(): Promise<void> {
@@ -349,6 +359,11 @@ watch(
 
 .history-rerun {
   color: #0f766e;
+  font-weight: 600;
+}
+
+.history-rerun-new {
+  color: #7c3aed;
   font-weight: 600;
 }
 
