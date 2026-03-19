@@ -6,8 +6,10 @@ import { ref, computed } from 'vue'
 import type { Session, Message } from '@/api/sessions'
 import * as api from '@/api/sessions'
 import { ChatWebSocket, type WebSocketMessage } from '@/api/websocket'
+import { useLocaleStore } from '@/stores/locale'
 
 export const useChatStore = defineStore('chat', () => {
+  const localeStore = useLocaleStore()
   // State
   const sessions = ref<Session[]>([])
   const currentSession = ref<Session | null>(null)
@@ -37,7 +39,7 @@ export const useChatStore = defineStore('chat', () => {
       sessionSearchQuery.value = query
       sessions.value = await api.getSessions(query)
     } catch (e) {
-      error.value = 'Failed to fetch sessions'
+      error.value = localeStore.t('chat.error.fetchSessions')
       console.error(e)
     } finally {
       isLoading.value = false
@@ -57,7 +59,7 @@ export const useChatStore = defineStore('chat', () => {
         isLoading.value = true
         messages.value = await api.getMessages(session.id)
       } catch (e) {
-        error.value = 'Failed to fetch messages'
+        error.value = localeStore.t('chat.error.fetchMessages')
         console.error(e)
       } finally {
         isLoading.value = false
@@ -71,14 +73,14 @@ export const useChatStore = defineStore('chat', () => {
   /**
    * Create a new session.
    */
-  async function createSession(title: string = 'New Chat'): Promise<Session> {
+  async function createSession(title: string = localeStore.t('chat.defaultSessionTitle')): Promise<Session> {
     try {
       isLoading.value = true
       const session = await api.createSession({ title })
       sessions.value.unshift(session)
       return session
     } catch (e) {
-      error.value = 'Failed to create session'
+      error.value = localeStore.t('chat.error.createSession')
       console.error(e)
       throw e
     } finally {
@@ -104,7 +106,7 @@ export const useChatStore = defineStore('chat', () => {
         }
       }
     } catch (e) {
-      error.value = 'Failed to update session'
+      error.value = localeStore.t('chat.error.updateSession')
       console.error(e)
       throw e
     }
@@ -123,7 +125,7 @@ export const useChatStore = defineStore('chat', () => {
         disconnectWebSocket()
       }
     } catch (e) {
-      error.value = 'Failed to delete session'
+      error.value = localeStore.t('chat.error.deleteSession')
       console.error(e)
       throw e
     }
@@ -140,7 +142,7 @@ export const useChatStore = defineStore('chat', () => {
       link.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      error.value = 'Failed to export session'
+      error.value = localeStore.t('chat.error.exportSession')
       console.error(e)
       throw e
     }
@@ -148,7 +150,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function retryAssistantMessage(messageId: number): Promise<void> {
     if (!currentSession.value) {
-      error.value = 'No active session'
+      error.value = localeStore.t('chat.error.noActiveSession')
       return
     }
 
@@ -164,7 +166,7 @@ export const useChatStore = defineStore('chat', () => {
         messages: messages.value,
       }
     } catch (e) {
-      error.value = 'Failed to retry answer'
+      error.value = localeStore.t('chat.error.retryAnswer')
       console.error(e)
       throw e
     } finally {
@@ -175,7 +177,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function appendResearchTask(taskId: number, mode: 'summary' | 'full' = 'summary'): Promise<void> {
     if (!currentSession.value) {
-      error.value = 'No active session'
+      error.value = localeStore.t('chat.error.noActiveSession')
       return
     }
 
@@ -188,7 +190,7 @@ export const useChatStore = defineStore('chat', () => {
         messages: messages.value,
       }
     } catch (e) {
-      error.value = 'Failed to add research brief to session'
+      error.value = localeStore.t('chat.error.appendResearch')
       console.error(e)
       throw e
     }
@@ -207,7 +209,7 @@ export const useChatStore = defineStore('chat', () => {
       () => console.log('WebSocket connected'),
       () => console.log('WebSocket disconnected'),
       (e) => {
-        error.value = 'WebSocket connection error'
+        error.value = localeStore.t('chat.error.websocket')
         console.error(e)
       }
     )
@@ -262,7 +264,7 @@ export const useChatStore = defineStore('chat', () => {
       case 'error':
         isStreaming.value = false
         streamingContent.value = ''
-        error.value = msg.message || 'Unknown error'
+        error.value = msg.message || localeStore.t('chat.error.websocketUnknown')
         break
     }
   }
@@ -274,7 +276,7 @@ export const useChatStore = defineStore('chat', () => {
     if (websocket && websocket.isConnected()) {
       websocket.send(content)
     } else {
-      error.value = 'WebSocket not connected'
+      error.value = localeStore.t('chat.error.websocketDisconnected')
     }
   }
 

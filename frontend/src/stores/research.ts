@@ -3,8 +3,10 @@ import { computed, ref } from 'vue'
 
 import type { ResearchTaskResult } from '@/api/research'
 import { deleteResearchTask, getSessionResearchTasks, rerunResearchTask, rerunResearchTaskAsNew, runResearchTask, updateResearchTask } from '@/api/research'
+import { useLocaleStore } from '@/stores/locale'
 
 export const useResearchStore = defineStore('research', () => {
+  const localeStore = useLocaleStore()
   const currentTask = ref<ResearchTaskResult | null>(null)
   const tasks = ref<ResearchTaskResult[]>([])
   const query = ref('')
@@ -24,7 +26,7 @@ export const useResearchStore = defineStore('research', () => {
   async function runTask(taskQuery = query.value, sessionId?: number): Promise<void> {
     const normalizedQuery = taskQuery.trim()
     if (!normalizedQuery) {
-      error.value = 'Research query cannot be empty'
+      error.value = localeStore.t('research.error.emptyQuery')
       return
     }
 
@@ -40,7 +42,7 @@ export const useResearchStore = defineStore('research', () => {
         tasks.value = [currentTask.value, ...tasks.value.filter(task => task.id !== currentTask.value?.id)]
       }
     } catch (e) {
-      error.value = 'Failed to run research task'
+      error.value = localeStore.t('research.error.run')
       console.error(e)
       throw e
     } finally {
@@ -61,7 +63,7 @@ export const useResearchStore = defineStore('research', () => {
       tasks.value = await getSessionResearchTasks(sessionId)
       currentTask.value = tasks.value[0] ?? null
     } catch (e) {
-      error.value = 'Failed to fetch research history'
+      error.value = localeStore.t('research.error.fetchHistory')
       console.error(e)
     } finally {
       isLoadingHistory.value = false
@@ -81,7 +83,7 @@ export const useResearchStore = defineStore('research', () => {
         currentTask.value = tasks.value[0] ?? null
       }
     } catch (e) {
-      error.value = 'Failed to delete research task'
+      error.value = localeStore.t('research.error.delete')
       console.error(e)
       throw e
     }
@@ -90,7 +92,7 @@ export const useResearchStore = defineStore('research', () => {
   async function renameTask(taskId: number, query: string): Promise<void> {
     const normalizedQuery = query.trim()
     if (!normalizedQuery) {
-      error.value = 'Research query cannot be empty'
+      error.value = localeStore.t('research.error.emptyQuery')
       return
     }
 
@@ -102,7 +104,7 @@ export const useResearchStore = defineStore('research', () => {
         currentTask.value = updatedTask
       }
     } catch (e) {
-      error.value = 'Failed to rename research task'
+      error.value = localeStore.t('research.error.rename')
       console.error(e)
       throw e
     }
@@ -116,7 +118,7 @@ export const useResearchStore = defineStore('research', () => {
       tasks.value = tasks.value.map(task => task.id === taskId ? updatedTask : task)
       currentTask.value = updatedTask
     } catch (e) {
-      error.value = 'Failed to rerun research task'
+      error.value = localeStore.t('research.error.rerun')
       console.error(e)
       throw e
     } finally {
@@ -132,7 +134,7 @@ export const useResearchStore = defineStore('research', () => {
       tasks.value = [createdTask, ...tasks.value.filter(task => task.id !== createdTask.id)]
       currentTask.value = createdTask
     } catch (e) {
-      error.value = 'Failed to create a new rerun task'
+      error.value = localeStore.t('research.error.rerunNew')
       console.error(e)
       throw e
     } finally {

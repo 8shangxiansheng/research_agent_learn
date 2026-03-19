@@ -134,7 +134,7 @@
             </div>
             <div class="source-links">
               <a :href="source.url" target="_blank" rel="noreferrer">{{ localeStore.t('research.abstract') }}</a>
-              <a v-if="source.pdf_url" :href="source.pdf_url" target="_blank" rel="noreferrer">PDF</a>
+              <a v-if="source.pdf_url" :href="source.pdf_url" target="_blank" rel="noreferrer">{{ localeStore.t('common.pdf') }}</a>
             </div>
           </li>
         </ul>
