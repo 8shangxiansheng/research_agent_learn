@@ -11,6 +11,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Structured evidence map that links answer claims back to cited sources
 - Research phase progress display for planning, retrieval, synthesis, and completion
 - Local TXT / Markdown document upload for grounding research tasks with user-provided notes
+- Mixed-source research retrieval with arXiv papers plus Crossref metadata enrichment
 - Research history per session with rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations
 - Session export to Markdown for note taking and sharing
@@ -29,11 +30,12 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Search, export, and retry enhancements are implemented
 - Frontend unit tests: `30` passing
 - Frontend E2E tests: `2` passing
-- Backend Python tests: `34` passing
+- Backend Python tests: `36` passing
 - Playwright browser flow is now part of the repository and CI pipeline
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stricter inline source markers such as `[S1]`, and responses expose an evidence map derived from those citations
 - Exported research reports now include a snapshot section, key takeaways, source catalogue, and full synthesis in one Markdown brief
+- Research source catalogues now mix arXiv papers with Crossref metadata records when capacity allows
 
 See also:
 - [API reference](docs/api.md)

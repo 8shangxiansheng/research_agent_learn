@@ -167,7 +167,7 @@
           <li v-for="source in researchStore.currentTask.sources" :key="source.source_id">
             <div class="source-meta">
               <span class="citation-chip">[{{ source.citation_label }}]</span>
-              <span>{{ source.source_type }}</span>
+              <span>{{ formatSourceType(source.source_type) }}</span>
               <span>{{ formatPublishedDate(source.published_at) }}</span>
               <span v-if="source.primary_category">{{ source.primary_category }}</span>
             </div>
@@ -335,6 +335,12 @@ function formatTaskDate(date: string): string {
 
 function formatPublishedDate(date?: string): string {
   return formatSourceDate(date, localeStore)
+}
+
+function formatSourceType(sourceType: string): string {
+  const key = `research.sourceType.${sourceType}`
+  const translated = localeStore.t(key)
+  return translated === key ? sourceType : translated
 }
 
 function isRemoteSource(url: string): boolean {

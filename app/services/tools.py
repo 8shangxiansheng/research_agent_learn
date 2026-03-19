@@ -1,10 +1,13 @@
 """
 Tools for Academic Q&A Agent.
-Provides arXiv retrieval utilities and LangChain-compatible tool wrappers.
+Provides arXiv and metadata retrieval utilities plus LangChain-compatible tool wrappers.
 """
+import json
 import os
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 import arxiv
 from langchain_core.tools import tool
@@ -35,6 +38,10 @@ def _build_citation(
     if doi:
         parts.append(f"DOI: {doi}")
     return " ".join(parts)
+
+
+def _is_mock_mode_enabled() -> bool:
+    return os.getenv("ACADEMIC_QA_MOCK_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _dedupe_and_sort_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -79,9 +86,162 @@ def _dedupe_and_sort_sources(sources: list[dict[str, Any]]) -> list[dict[str, An
     )
 
 
+def merge_research_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Normalize a mixed source list into a stable, deduplicated order."""
+    return _dedupe_and_sort_sources(sources)
+
+
+def _extract_crossref_date(item: dict[str, Any]) -> str:
+    """Build an ISO-like date string from a Crossref message item."""
+    for field in ("published-print", "published-online", "created", "issued"):
+        date_parts = item.get(field, {}).get("date-parts", [])
+        if not date_parts or not date_parts[0]:
+            continue
+        parts = date_parts[0]
+        year = parts[0]
+        month = parts[1] if len(parts) > 1 else 1
+        day = parts[2] if len(parts) > 2 else 1
+        return f"{year:04d}-{month:02d}-{day:02d}T00:00:00Z"
+    return "1970-01-01T00:00:00Z"
+
+
+def _normalize_crossref_item(item: dict[str, Any], *, score: int) -> dict[str, Any]:
+    """Convert a Crossref item into the shared research source schema."""
+    title = (item.get("title") or ["Untitled record"])[0]
+    authors = [
+        " ".join(part for part in [author.get("given"), author.get("family")] if part).strip()
+        for author in item.get("author", [])
+        if author.get("given") or author.get("family")
+    ]
+    subjects = [subject for subject in item.get("subject", []) if subject]
+    doi = item.get("DOI")
+    journal_ref = (item.get("container-title") or [None])[0]
+    published_at = _extract_crossref_date(item)
+    url = item.get("URL") or (f"https://doi.org/{doi}" if doi else item.get("resource", {}).get("primary", {}).get("URL"))
+    abstract = (
+        item.get("abstract")
+        or f"Crossref metadata record for {title}. Journal: {journal_ref or 'Unknown venue'}."
+    )
+
+    return {
+        "source_id": f"crossref-{doi or abs(hash(title))}",
+        "arxiv_id": None,
+        "title": title,
+        "authors": authors or ["Unknown authors"],
+        "abstract": abstract,
+        "published_at": published_at,
+        "url": url or "https://www.crossref.org/",
+        "pdf_url": None,
+        "primary_category": subjects[0] if subjects else None,
+        "categories": subjects,
+        "comment": item.get("publisher"),
+        "journal_ref": journal_ref,
+        "doi": doi,
+        "citation_text": _build_citation(
+            title=title,
+            authors=authors or ["Unknown authors"],
+            published_at=published_at,
+            journal_ref=journal_ref,
+            doi=doi,
+        ),
+        "source_type": "crossref",
+        "score": score,
+    }
+
+
+def search_crossref_records(query: str, max_results: int = 2) -> list[dict[str, Any]]:
+    """Return normalized Crossref metadata records for downstream research flows."""
+    if max_results <= 0:
+        return []
+
+    if _is_mock_mode_enabled():
+        records = [
+            {
+                "source_id": "mock-crossref-1",
+                "arxiv_id": None,
+                "title": f"Crossref metadata for {query}",
+                "authors": ["Metadata Curator", "Index Maintainer"],
+                "abstract": (
+                    f"This deterministic Crossref-style metadata record enriches {query} "
+                    "with venue and DOI level details for mixed-source tests."
+                ),
+                "published_at": "2025-12-01T00:00:00Z",
+                "url": "https://doi.org/10.5555/mock-crossref.1",
+                "pdf_url": None,
+                "primary_category": "Metadata",
+                "categories": ["Metadata", "Citation Index"],
+                "comment": "Crossref mock registry",
+                "journal_ref": "Journal of Mock Metadata",
+                "doi": "10.5555/mock-crossref.1",
+                "citation_text": _build_citation(
+                    title=f"Crossref metadata for {query}",
+                    authors=["Metadata Curator", "Index Maintainer"],
+                    published_at="2025-12-01T00:00:00Z",
+                    journal_ref="Journal of Mock Metadata",
+                    doi="10.5555/mock-crossref.1",
+                ),
+                "source_type": "crossref",
+                "score": max(max_results, 1),
+            }
+        ]
+        if max_results > 1:
+            records.append(
+                {
+                    "source_id": "mock-crossref-2",
+                    "arxiv_id": None,
+                    "title": f"Crossref venue overview for {query}",
+                    "authors": ["Index Maintainer"],
+                    "abstract": (
+                        f"This secondary metadata entry highlights venue-level context related to {query} "
+                        "for testing mixed-source ranking."
+                    ),
+                    "published_at": "2025-08-15T00:00:00Z",
+                    "url": "https://doi.org/10.5555/mock-crossref.2",
+                    "pdf_url": None,
+                    "primary_category": "Bibliography",
+                    "categories": ["Bibliography"],
+                    "comment": "Crossref mock registry",
+                    "journal_ref": "Proceedings of Metadata Systems",
+                    "doi": "10.5555/mock-crossref.2",
+                    "citation_text": _build_citation(
+                        title=f"Crossref venue overview for {query}",
+                        authors=["Index Maintainer"],
+                        published_at="2025-08-15T00:00:00Z",
+                        journal_ref="Proceedings of Metadata Systems",
+                        doi="10.5555/mock-crossref.2",
+                    ),
+                    "source_type": "crossref",
+                    "score": max(max_results - 1, 1),
+                }
+            )
+        return merge_research_sources(records[:max_results])
+
+    params = urlencode(
+        {
+            "query.bibliographic": query,
+            "rows": max_results,
+            "sort": "relevance",
+            "order": "desc",
+        }
+    )
+    request_url = f"https://api.crossref.org/works?{params}"
+    try:
+        with urlopen(request_url, timeout=8) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return []
+
+    items = payload.get("message", {}).get("items", [])
+    records = [
+        _normalize_crossref_item(item, score=max(max_results - index, 1))
+        for index, item in enumerate(items)
+    ]
+    return merge_research_sources(records)
+
+
 def search_arxiv_papers(query: str, max_results: int = 5) -> list[dict[str, Any]]:
     """Return normalized arXiv search results for downstream research flows."""
-    if os.getenv("ACADEMIC_QA_MOCK_MODE", "").strip().lower() in {"1", "true", "yes", "on"}:
+    if _is_mock_mode_enabled():
         published_at = "2026-03-19T10:00:00+00:00"
         mock_results = [
             {
@@ -185,7 +345,7 @@ def search_arxiv_papers(query: str, max_results: int = 5) -> list[dict[str, Any]
             }
         )
 
-    return _dedupe_and_sort_sources(papers)
+    return merge_research_sources(papers)
 
 
 @tool

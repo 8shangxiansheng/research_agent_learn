@@ -38,6 +38,10 @@ const mockLocaleStore = {
     'research.delete': 'Delete',
     'research.plan': 'Plan',
     'research.sources': 'Sources',
+    'research.sourceType.arxiv': 'arXiv',
+    'research.sourceType.crossref': 'Crossref',
+    'research.sourceType.local_document': 'Local Document',
+    'research.sourceType.local_pdf': 'Local PDF',
     'research.evidence': 'Evidence Map',
     'research.answer': 'Research Answer',
     'research.insertSummary': 'Insert Summary',
@@ -270,6 +274,22 @@ describe('ResearchPanel', () => {
           citation_text: 'Author A, Author B (2026). Paper Title. NeurIPS 2025. DOI: 10.1000/test-doi',
           abstract: 'A concise abstract.',
         },
+        {
+          source_id: 'crossref-1',
+          citation_label: 'S2',
+          title: 'Metadata Record',
+          authors: ['Curator A'],
+          url: 'https://doi.org/10.1000/test-doi',
+          pdf_url: null,
+          source_type: 'crossref',
+          published_at: '2025-02-10T00:00:00Z',
+          categories: ['Metadata'],
+          primary_category: 'Metadata',
+          journal_ref: 'Metadata Journal',
+          doi: '10.1000/test-doi',
+          citation_text: 'Curator A (2025). Metadata Record. Metadata Journal. DOI: 10.1000/test-doi',
+          abstract: 'Metadata summary.',
+        },
       ],
       evidence_map: [
         {
@@ -305,6 +325,8 @@ describe('ResearchPanel', () => {
     expect(wrapper.text()).toContain('arXiv: 2401.12345')
     expect(wrapper.text()).toContain('DOI: 10.1000/test-doi')
     expect(wrapper.text()).toContain('NeurIPS 2025')
+    expect(wrapper.text()).toContain('Crossref')
+    expect(wrapper.text()).toContain('Metadata Record')
   })
 
   it('exports the markdown report through the backend download endpoint', async () => {

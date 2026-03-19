@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from app.services.agent import get_agent
-from app.services.tools import search_arxiv_papers
+from app.services.tools import merge_research_sources, search_arxiv_papers, search_crossref_records
 from app.services.research.document_parser import build_document_source
 
 
@@ -189,9 +189,9 @@ class ResearchOrchestrator:
         ]
         if has_document:
             plan.append("Extract the key claims and evidence from the uploaded local document")
-            plan.append(f"Retrieve the most relevant external papers for: {normalized_query}")
+            plan.append(f"Retrieve the most relevant external papers and metadata records for: {normalized_query}")
         else:
-            plan.append(f"Retrieve the most relevant arXiv papers for: {normalized_query}")
+            plan.append(f"Retrieve the most relevant arXiv papers and Crossref metadata for: {normalized_query}")
         plan.append("Synthesize the evidence into a concise research summary with source-backed takeaways")
         return plan
 
@@ -209,13 +209,17 @@ class ResearchOrchestrator:
             remaining_sources = max(0, max_sources - 1)
 
         if remaining_sources > 0:
-            sources.extend(search_arxiv_papers(query=query, max_results=remaining_sources))
+            arxiv_count = remaining_sources if remaining_sources == 1 else max(1, remaining_sources - 1)
+            crossref_count = max(0, remaining_sources - arxiv_count)
+            sources.extend(search_arxiv_papers(query=query, max_results=arxiv_count))
+            if crossref_count > 0:
+                sources.extend(search_crossref_records(query=query, max_results=crossref_count))
 
-        return sources
+        return merge_research_sources(sources)
 
     async def synthesize_answer(self, query: str, sources: list[dict[str, Any]]) -> str:
         if not sources:
-            return "No relevant arXiv sources were found for this research topic."
+            return "No relevant external sources were found for this research topic."
 
         formatted_sources = "\n\n".join(
             (

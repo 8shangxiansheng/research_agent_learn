@@ -394,6 +394,20 @@ def test_research_task_returns_structured_result(
                         "pdf_url": "https://arxiv.org/pdf/1234.5678.pdf",
                         "source_type": "arxiv",
                         "score": max_sources,
+                    },
+                    {
+                        "source_id": "crossref-1",
+                        "citation_label": "S2",
+                        "title": "Metadata Record",
+                        "authors": ["Curator A"],
+                        "abstract": "A Crossref metadata record for the same topic.",
+                        "published_at": "2023-02-01T00:00:00Z",
+                        "url": "https://doi.org/10.1000/metadata",
+                        "pdf_url": None,
+                        "journal_ref": "Metadata Journal",
+                        "doi": "10.1000/metadata",
+                        "source_type": "crossref",
+                        "score": 1,
                     }
                 ],
                 "answer": "This field summarizes the research topic.",
@@ -422,6 +436,7 @@ def test_research_task_returns_structured_result(
     assert payload["phase_statuses"][-1]["phase"] == "completed"
     assert payload["sources"][0]["citation_label"] == "S1"
     assert payload["sources"][0]["title"] == "Graph Neural Networks"
+    assert payload["sources"][1]["source_type"] == "crossref"
     assert payload["answer"] == "This field summarizes the research topic."
 
     list_response = client.get(f"/api/sessions/{session_id}/research-tasks")
@@ -1145,3 +1160,50 @@ def test_research_orchestrator_builds_evidence_map_from_answer() -> None:
             "source_titles": ["Transformer Paper"],
         },
     ]
+
+
+def test_research_orchestrator_retrieves_mixed_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    orchestrator = ResearchOrchestrator()
+
+    monkeypatch.setattr(
+        "app.services.research.orchestrator.search_arxiv_papers",
+        lambda query, max_results=5: [
+            {
+                "source_id": "arxiv-1",
+                "title": "Graph Neural Networks",
+                "authors": ["Author A"],
+                "abstract": "Primary paper.",
+                "published_at": "2024-01-01T00:00:00Z",
+                "url": "https://arxiv.org/abs/1234.5678",
+                "pdf_url": "https://arxiv.org/pdf/1234.5678.pdf",
+                "source_type": "arxiv",
+                "score": max_results,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.research.orchestrator.search_crossref_records",
+        lambda query, max_results=2: [
+            {
+                "source_id": "crossref-1",
+                "title": "Metadata Record",
+                "authors": ["Curator A"],
+                "abstract": "Supplementary metadata.",
+                "published_at": "2023-02-01T00:00:00Z",
+                "url": "https://doi.org/10.1000/metadata",
+                "pdf_url": None,
+                "journal_ref": "Metadata Journal",
+                "doi": "10.1000/metadata",
+                "source_type": "crossref",
+                "score": max_results,
+            }
+        ],
+    )
+
+    sources = orchestrator.retrieve_sources("graph neural networks", max_sources=3)
+
+    assert len(sources) == 2
+    assert any(source["source_type"] == "arxiv" for source in sources)
+    assert any(source["source_type"] == "crossref" for source in sources)

@@ -110,6 +110,9 @@ Possible error cases:
   - `MD` / `Markdown`
   - `PDF` when the optional `pypdf` dependency is available in the runtime
 - Local documents are injected as a first-class research source and persisted with the task so that reruns keep the same local context.
+- External retrieval now uses a mixed source set:
+  - `arxiv` entries for paper-first evidence
+  - `crossref` entries for DOI, venue, and bibliography metadata enrichment
 
 - Returns one `ResearchTaskResponse` with:
   - `id`
@@ -214,6 +217,7 @@ Possible error cases:
 ### Research Output Rules
 
 - Source entries include stable labels such as `S1`, `S2`, and `S3`.
+- Source entries may come from `arxiv`, `crossref`, `local_document`, or `local_pdf`.
 - Research answers should cite claims inline using `[S1]` style markers.
 - Unknown citations are stripped when they do not map to the current source set.
 - Claim segments without citations are backfilled with fallback source markers so each answer segment remains source-backed.
