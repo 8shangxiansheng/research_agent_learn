@@ -8,6 +8,7 @@
       <div class="panel-actions">
         <el-button
           v-if="researchStore.currentTask"
+          data-test="export-report"
           text
           @click="exportReport"
         >
@@ -26,11 +27,13 @@
     <div class="query-row">
       <el-input
         v-model="query"
+        data-test="research-query"
         :placeholder="localeStore.t('research.queryPlaceholder')"
         :disabled="researchStore.isRunning"
         @keydown.enter.prevent="handleRun"
       />
       <el-button
+        data-test="run-research"
         type="primary"
         :loading="researchStore.isRunning"
         :disabled="!query.trim()"
@@ -150,7 +153,7 @@
       </div>
     </section>
 
-    <div v-if="researchStore.currentTask" class="result-grid">
+    <div v-if="researchStore.currentTask" class="result-grid" data-test="research-result">
       <section class="card">
         <h4>{{ localeStore.t('research.plan') }}</h4>
         <ol>
@@ -232,7 +235,7 @@
         <p v-else class="history-empty">{{ localeStore.t('research.evidenceEmpty') }}</p>
       </section>
 
-      <section class="card report-card">
+      <section class="card report-card" data-test="research-answer-card">
         <div class="report-header">
           <h4>{{ localeStore.t('research.answer') }}</h4>
           <div
@@ -253,7 +256,7 @@
             </el-button>
           </div>
         </div>
-        <p class="answer">{{ researchStore.currentTask.answer }}</p>
+        <p class="answer" data-test="research-answer">{{ researchStore.currentTask.answer }}</p>
         <details>
           <summary>{{ localeStore.t('research.viewMarkdown') }}</summary>
           <pre>{{ researchStore.currentTask.report_markdown }}</pre>

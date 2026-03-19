@@ -27,8 +27,10 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend tests: `30` passing
-- Backend API tests: `31` passing
+- Frontend unit tests: `30` passing
+- Frontend E2E tests: `2` passing
+- Backend Python tests: `34` passing
+- Playwright browser flow is now part of the repository and CI pipeline
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stricter inline source markers such as `[S1]`, and responses expose an evidence map derived from those citations
 - Exported research reports now include a snapshot section, key takeaways, source catalogue, and full synthesis in one Markdown brief
@@ -137,6 +139,19 @@ The frontend development server default is also configured to use port `4173`, s
 - Research report downloads now use a stable `research-brief-*.md` filename format.
 - Exported Markdown includes a report snapshot, key takeaways, research plan, source catalogue, evidence map, and full synthesis.
 - The raw export endpoint returns the same structured Markdown with a download-friendly filename header.
+
+### End-to-End Testing
+
+- Browser-based E2E coverage now lives under `frontend/e2e/` and runs with `npm run test:e2e`.
+- The Playwright config starts the backend in `ACADEMIC_QA_MOCK_MODE=1`, so chat and research flows can run deterministically without a live DeepSeek call.
+- Local runs can reuse the project `agent-dev` environment by overriding the backend startup command:
+
+```bash
+cd frontend
+PLAYWRIGHT_BACKEND_CMD="/Users/syj/miniconda3/bin/conda run -n agent-dev python -m uvicorn app.main:app --host 127.0.0.1 --port 8000" npm run test:e2e
+```
+
+- CI now runs three frontend layers: unit tests, production build, and Playwright E2E.
 
 ### Docker Deployment
 

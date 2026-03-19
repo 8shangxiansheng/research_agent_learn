@@ -2,6 +2,7 @@
 Tools for Academic Q&A Agent.
 Provides arXiv retrieval utilities and LangChain-compatible tool wrappers.
 """
+import os
 from datetime import datetime
 from typing import Any
 
@@ -80,6 +81,69 @@ def _dedupe_and_sort_sources(sources: list[dict[str, Any]]) -> list[dict[str, An
 
 def search_arxiv_papers(query: str, max_results: int = 5) -> list[dict[str, Any]]:
     """Return normalized arXiv search results for downstream research flows."""
+    if os.getenv("ACADEMIC_QA_MOCK_MODE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        published_at = "2026-03-19T10:00:00+00:00"
+        mock_results = [
+            {
+                "source_id": "mock-arxiv-1",
+                "arxiv_id": "2603.19001",
+                "title": f"Mock evidence for {query}",
+                "authors": ["Mock Author", "Test Researcher"],
+                "abstract": (
+                    f"This deterministic mock paper summarizes the core evidence for {query}. "
+                    "It exists to make browser-based end-to-end tests stable and repeatable."
+                ),
+                "published_at": published_at,
+                "url": "https://example.com/mock-paper-1",
+                "pdf_url": "https://example.com/mock-paper-1.pdf",
+                "primary_category": "cs.AI",
+                "categories": ["cs.AI", "cs.IR"],
+                "comment": None,
+                "journal_ref": "Mock Testing Workshop 2026",
+                "doi": "10.0000/mock.2026.1",
+                "citation_text": _build_citation(
+                    title=f"Mock evidence for {query}",
+                    authors=["Mock Author", "Test Researcher"],
+                    published_at=published_at,
+                    journal_ref="Mock Testing Workshop 2026",
+                    doi="10.0000/mock.2026.1",
+                ),
+                "source_type": "arxiv",
+                "score": max(max_results, 1),
+            }
+        ]
+        if max_results > 1:
+            mock_results.append(
+                {
+                    "source_id": "mock-arxiv-2",
+                    "arxiv_id": "2603.19002",
+                    "title": f"Comparative mock study on {query}",
+                    "authors": ["Regression Bot"],
+                    "abstract": (
+                        f"This secondary mock paper compares approaches related to {query} "
+                        "so research ranking and citation flows can be exercised in tests."
+                    ),
+                    "published_at": "2026-03-18T10:00:00+00:00",
+                    "url": "https://example.com/mock-paper-2",
+                    "pdf_url": "https://example.com/mock-paper-2.pdf",
+                    "primary_category": "cs.LG",
+                    "categories": ["cs.LG"],
+                    "comment": None,
+                    "journal_ref": None,
+                    "doi": None,
+                    "citation_text": _build_citation(
+                        title=f"Comparative mock study on {query}",
+                        authors=["Regression Bot"],
+                        published_at="2026-03-18T10:00:00+00:00",
+                        journal_ref=None,
+                        doi=None,
+                    ),
+                    "source_type": "arxiv",
+                    "score": max(max_results - 1, 1),
+                }
+            )
+        return _dedupe_and_sort_sources(mock_results[:max_results])
+
     client = arxiv.Client()
     search = arxiv.Search(
         query=query,

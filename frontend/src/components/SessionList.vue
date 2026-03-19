@@ -2,7 +2,7 @@
   <div class="session-list">
     <div class="session-header">
       <h3>{{ localeStore.t('session.title') }}</h3>
-      <el-button type="primary" size="small" @click="handleCreate">
+      <el-button data-test="new-session" type="primary" size="small" @click="handleCreate">
         <el-icon><Plus /></el-icon>
         {{ localeStore.t('session.new') }}
       </el-button>
@@ -11,6 +11,7 @@
     <div class="session-search">
       <el-input
         v-model="searchQuery"
+        data-test="session-search"
         clearable
         :placeholder="localeStore.t('session.searchPlaceholder')"
         @input="handleSearch"
@@ -36,11 +37,13 @@
         <div
           v-for="session in chatStore.sessions"
           :key="session.id"
+          :data-session-id="session.id"
+          data-test="session-item"
           :class="['session-item', { active: chatStore.currentSession?.id === session.id }]"
           @click="handleSelect(session)"
         >
           <div class="session-info">
-            <span class="session-title">{{ session.title }}</span>
+            <span class="session-title" data-test="session-title">{{ session.title }}</span>
             <span class="session-date">{{ formatDate(session.created_at) }}</span>
           </div>
           <el-dropdown trigger="click" @command="(cmd: string) => handleCommand(cmd, session)">

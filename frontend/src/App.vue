@@ -9,6 +9,7 @@
         <button
           type="button"
           class="locale-toggle"
+          data-test="locale-toggle"
           @click="localeStore.toggleLocale()"
         >
           {{ localeStore.t('app.language') }} · {{ localeStore.nextLocaleLabel }}

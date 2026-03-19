@@ -102,7 +102,7 @@ const baseStubs = {
     },
     emits: ['update:modelValue', 'input', 'clear'],
     template:
-      '<input data-test="search-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value); $emit(\'input\', $event.target.value)" />',
+      '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value); $emit(\'input\', $event.target.value)" />',
   },
   'el-dropdown': {
     template: '<div><slot /><slot name="dropdown" /></div>',
@@ -173,7 +173,7 @@ describe('SessionList', () => {
       },
     })
 
-    await wrapper.get('[data-test="search-input"]').setValue('graph')
+    await wrapper.get('[data-test="session-search"]').setValue('graph')
 
     expect(mockStore.fetchSessions).toHaveBeenNthCalledWith(1)
     expect(mockStore.fetchSessions).toHaveBeenNthCalledWith(2, 'graph')

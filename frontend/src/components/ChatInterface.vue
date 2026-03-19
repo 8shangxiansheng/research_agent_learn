@@ -2,9 +2,10 @@
   <div class="chat-interface">
     <div class="chat-header">
       <div class="chat-title-row">
-        <h2>{{ chatStore.currentSession?.title || localeStore.t('chat.selectSession') }}</h2>
+        <h2 data-test="chat-title">{{ chatStore.currentSession?.title || localeStore.t('chat.selectSession') }}</h2>
         <span
           v-if="chatStore.websocketStatus !== 'idle' && chatStore.hasCurrentSession"
+          data-test="websocket-badge"
           :class="['connection-badge', `is-${chatStore.websocketStatus}`]"
         >
           {{ chatStore.websocketStatusLabel }}
@@ -48,17 +49,19 @@
       </el-scrollbar>
 
       <div class="input-area">
-        <el-input
-          v-model="inputMessage"
-          type="textarea"
-          :rows="3"
-          :placeholder="localeStore.t('chat.placeholder')"
+      <el-input
+        v-model="inputMessage"
+        data-test="chat-input"
+        type="textarea"
+        :rows="3"
+        :placeholder="localeStore.t('chat.placeholder')"
           :disabled="chatStore.isStreaming"
           @keydown.enter.ctrl="handleSend"
         />
         <div class="input-actions">
           <span class="hint">{{ localeStore.t('chat.sendHint') }}</span>
           <el-button
+            data-test="send-button"
             type="primary"
             :loading="chatStore.isStreaming"
             :disabled="!inputMessage.trim()"

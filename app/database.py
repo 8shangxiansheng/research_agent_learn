@@ -2,11 +2,12 @@
 Database connection module for Academic Q&A Agent application.
 Provides SQLAlchemy engine, session factory, and declarative base.
 """
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # SQLite database URL
-DATABASE_URL = "sqlite:///./academic_qa.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./academic_qa.db")
 
 # Create SQLAlchemy engine
 # check_same_thread=False is needed for SQLite in multi-threaded FastAPI

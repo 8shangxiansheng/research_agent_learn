@@ -2,8 +2,10 @@
 LangChain Agent for Academic Q&A.
 Provides streaming response with DeepSeek LLM and arxiv tool integration.
 """
+import asyncio
 import os
-from typing import AsyncGenerator, List, Dict, Any, Optional
+import re
+from typing import AsyncGenerator, List, Dict, Any, Optional, Protocol
 from datetime import datetime
 
 from langchain_openai import ChatOpenAI
@@ -31,6 +33,73 @@ When responding:
 - If you need to search for papers, use the arxiv_search tool
 
 Always be helpful, accurate, and thorough in your responses."""
+
+
+class AgentProtocol(Protocol):
+    """Shared interface for real and mock agents."""
+
+    async def astream(
+        self,
+        query: str,
+        history: Optional[List[Dict[str, str]]] = None,
+    ) -> AsyncGenerator[str, None]:
+        """Stream a response."""
+
+    async def ainvoke(
+        self,
+        query: str,
+        history: Optional[List[Dict[str, str]]] = None,
+    ) -> str:
+        """Return a full response."""
+
+
+class MockAcademicAgent:
+    """Deterministic agent used for local E2E and CI browser tests."""
+
+    _CITATION_PATTERN = re.compile(r"\[(S\d+)\]")
+
+    def _build_research_response(self, query: str) -> str:
+        citation_labels = list(dict.fromkeys(self._CITATION_PATTERN.findall(query)))
+        primary_label = citation_labels[0] if citation_labels else "S1"
+        secondary_label = citation_labels[1] if len(citation_labels) > 1 else primary_label
+        normalized_query = query.split("Research question:", maxsplit=1)[-1].splitlines()[0].strip() if "Research question:" in query else "this topic"
+        return (
+            f"{normalized_query.title()} shows a clear research signal in the retrieved evidence. [{primary_label}]\n\n"
+            f"The strongest references suggest the topic benefits from source-backed synthesis and comparison. [{secondary_label}]\n\n"
+            f"Suggested next reading: review the cited sources in order of relevance. [{primary_label}]"
+        )
+
+    def _build_chat_response(
+        self,
+        query: str,
+        history: Optional[List[Dict[str, str]]] = None,
+    ) -> str:
+        history_count = len(history or [])
+        return (
+            f"Mock assistant response for: {query.strip()}\n\n"
+            f"Conversation context items: {history_count}."
+        )
+
+    async def astream(
+        self,
+        query: str,
+        history: Optional[List[Dict[str, str]]] = None,
+    ) -> AsyncGenerator[str, None]:
+        response = await self.ainvoke(query, history)
+        midpoint = max(1, len(response) // 2)
+        for chunk in (response[:midpoint], response[midpoint:]):
+            if chunk:
+                await asyncio.sleep(0)
+                yield chunk
+
+    async def ainvoke(
+        self,
+        query: str,
+        history: Optional[List[Dict[str, str]]] = None,
+    ) -> str:
+        if "Research question:" in query and "Sources:" in query:
+            return self._build_research_response(query)
+        return self._build_chat_response(query, history)
 
 
 class AcademicAgent:
@@ -185,22 +254,26 @@ class AcademicAgent:
         Returns:
             Complete response string
         """
-        import asyncio
         return asyncio.run(self.ainvoke(query, history))
 
 
 # Singleton instance
-_agent_instance: Optional[AcademicAgent] = None
+_agent_instance: Optional[AgentProtocol] = None
 
 
-def get_agent() -> AcademicAgent:
+def _is_mock_mode_enabled() -> bool:
+    """Return whether deterministic mock mode is enabled."""
+    return os.getenv("ACADEMIC_QA_MOCK_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def get_agent() -> AgentProtocol:
     """
     Get or create the agent singleton.
 
     Returns:
-        AcademicAgent instance
+        AcademicAgent-compatible instance
     """
     global _agent_instance
     if _agent_instance is None:
-        _agent_instance = AcademicAgent()
+        _agent_instance = MockAcademicAgent() if _is_mock_mode_enabled() else AcademicAgent()
     return _agent_instance

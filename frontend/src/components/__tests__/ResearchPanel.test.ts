@@ -171,18 +171,18 @@ describe('ResearchPanel', () => {
             props: ['modelValue', 'disabled'],
             emits: ['update:modelValue', 'keydown'],
             template:
-              '<input data-test="research-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keydown="$emit(\'keydown\', $event)" />',
+              '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keydown="$emit(\'keydown\', $event)" />',
           },
           'el-button': {
             props: ['disabled', 'loading', 'text'],
             emits: ['click'],
-            template: '<button data-test="run-research" :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
+            template: '<button v-bind="$attrs" :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
           },
         },
       },
     })
 
-    await wrapper.get('[data-test="research-input"]').setValue('  graph neural networks  ')
+    await wrapper.get('[data-test="research-query"]').setValue('  graph neural networks  ')
     await wrapper.get('[data-test="run-research"]').trigger('click')
     await nextTick()
 
@@ -199,12 +199,12 @@ describe('ResearchPanel', () => {
             props: ['modelValue', 'disabled'],
             emits: ['update:modelValue', 'keydown'],
             template:
-              '<input data-test="research-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keydown="$emit(\'keydown\', $event)" />',
+              '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keydown="$emit(\'keydown\', $event)" />',
           },
           'el-button': {
             props: ['disabled', 'loading', 'text'],
             emits: ['click'],
-            template: '<button :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
+            template: '<button v-bind="$attrs" :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
           },
         },
       },
@@ -215,7 +215,7 @@ describe('ResearchPanel', () => {
       value: vi.fn().mockResolvedValue(new TextEncoder().encode('Document body').buffer),
     })
 
-    await wrapper.get('[data-test="research-input"]').setValue('summarize this document')
+    await wrapper.get('[data-test="research-query"]').setValue('summarize this document')
     const fileInput = wrapper.get('[data-test="research-file-input"]')
     Object.defineProperty(fileInput.element, 'files', {
       value: [file],
@@ -223,8 +223,7 @@ describe('ResearchPanel', () => {
     })
     await fileInput.trigger('change')
     await nextTick()
-    await wrapper.find('[data-test="attach-document"]').trigger('click')
-    await wrapper.findAll('button').find(button => button.text() === 'Run Research')?.trigger('click')
+    await wrapper.get('[data-test="run-research"]').trigger('click')
     await nextTick()
 
     expect(wrapper.text()).toContain('Attached document')
@@ -350,15 +349,13 @@ describe('ResearchPanel', () => {
           'el-button': {
             props: ['disabled', 'loading', 'text'],
             emits: ['click'],
-            template: '<button data-test="generic-button" @click="$emit(\'click\')"><slot /></button>',
+            template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
           },
         },
       },
     })
 
-    const exportButton = wrapper.findAll('[data-test="generic-button"]').find(node => node.text() === 'Export Report')
-    expect(exportButton).toBeDefined()
-    await exportButton!.trigger('click')
+    await wrapper.get('[data-test="export-report"]').trigger('click')
     await nextTick()
 
     expect(downloadResearchTaskReportMock).toHaveBeenCalledWith(1)
