@@ -2,6 +2,8 @@ import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const downloadResearchTaskReportMock = vi.fn()
+
 const mockResearchStore = {
   currentTask: null as null | {
     id: number
@@ -63,6 +65,10 @@ vi.mock('@/stores/chat', () => ({
   useChatStore: () => mockChatStore,
 }))
 
+vi.mock('@/api/research', () => ({
+  downloadResearchTaskReport: (...args: unknown[]) => downloadResearchTaskReportMock(...args),
+}))
+
 import ResearchPanel from '../ResearchPanel.vue'
 
 describe('ResearchPanel', () => {
@@ -82,6 +88,7 @@ describe('ResearchPanel', () => {
     mockResearchStore.selectTask.mockReset()
     mockResearchStore.removeTask.mockReset()
     mockResearchStore.clearTask.mockReset()
+    downloadResearchTaskReportMock.mockReset()
   })
 
   it('runs a research task with trimmed query', async () => {
@@ -163,7 +170,7 @@ describe('ResearchPanel', () => {
     expect(wrapper.text()).toContain('NeurIPS 2025')
   })
 
-  it('exports the markdown report', async () => {
+  it('exports the markdown report through the backend download endpoint', async () => {
     mockChatStore.currentSession = { id: 7, title: 'Research Session' }
     const clickMock = vi.fn()
     const originalCreateElement = document.createElement.bind(document)
@@ -171,6 +178,10 @@ describe('ResearchPanel', () => {
     const originalRevokeObjectURL = URL.revokeObjectURL
     URL.createObjectURL = vi.fn(() => 'blob:mock')
     URL.revokeObjectURL = vi.fn()
+    downloadResearchTaskReportMock.mockResolvedValue({
+      blob: new Blob(['# Report'], { type: 'text/markdown;charset=utf-8' }),
+      filename: 'graph-neural-networks.md',
+    })
     const appendMock = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
       if (tagName === 'a') {
         return {
@@ -208,7 +219,9 @@ describe('ResearchPanel', () => {
     const exportButton = wrapper.findAll('[data-test="generic-button"]').find(node => node.text() === 'Export Report')
     expect(exportButton).toBeDefined()
     await exportButton!.trigger('click')
+    await nextTick()
 
+    expect(downloadResearchTaskReportMock).toHaveBeenCalledWith(1)
     expect(URL.createObjectURL).toHaveBeenCalled()
     expect(clickMock).toHaveBeenCalled()
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock')

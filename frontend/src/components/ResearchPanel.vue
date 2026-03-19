@@ -156,6 +156,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
+import { downloadResearchTaskReport } from '@/api/research'
 import { useChatStore } from '@/stores/chat'
 import { useResearchStore } from '@/stores/research'
 
@@ -178,18 +179,16 @@ async function removeTask(taskId: number): Promise<void> {
   await researchStore.removeTask(taskId)
 }
 
-function exportReport(): void {
+async function exportReport(): Promise<void> {
   if (!researchStore.currentTask) {
     return
   }
 
-  const blob = new Blob([researchStore.currentTask.report_markdown], {
-    type: 'text/markdown;charset=utf-8',
-  })
+  const { blob, filename } = await downloadResearchTaskReport(researchStore.currentTask.id)
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = researchStore.currentTask.report_filename
+  link.download = filename
   link.click()
   URL.revokeObjectURL(url)
 }

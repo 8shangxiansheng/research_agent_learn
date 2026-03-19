@@ -21,8 +21,8 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend component tests: `11` passing
-- Backend API tests: `11` passing
+- Frontend component tests: `20` passing
+- Backend API tests: `21` passing
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stable inline source markers such as `[S1]`
 

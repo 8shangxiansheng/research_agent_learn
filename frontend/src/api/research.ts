@@ -44,6 +44,11 @@ export interface ResearchTaskResult {
   report_markdown: string
 }
 
+export interface ResearchReportDownload {
+  blob: Blob
+  filename: string
+}
+
 export async function runResearchTask(data: ResearchTaskRequest): Promise<ResearchTaskResult> {
   const response = await axios.post<ResearchTaskResult>(`${API_BASE}/research/tasks`, data)
   return response.data
@@ -61,4 +66,16 @@ export async function getSessionResearchTasks(sessionId: number): Promise<Resear
 
 export async function deleteResearchTask(taskId: number): Promise<void> {
   await axios.delete(`${API_BASE}/research/tasks/${taskId}`)
+}
+
+export async function downloadResearchTaskReport(taskId: number): Promise<ResearchReportDownload> {
+  const response = await axios.get(`${API_BASE}/research/tasks/${taskId}/report/raw`, {
+    responseType: 'blob',
+  })
+  const dispositionHeader = String(response.headers['content-disposition'] ?? '')
+  const filenameMatch = dispositionHeader.match(/filename="([^"]+)"/)
+  return {
+    blob: response.data,
+    filename: filenameMatch?.[1] ?? `research-task-${taskId}.md`,
+  }
 }
