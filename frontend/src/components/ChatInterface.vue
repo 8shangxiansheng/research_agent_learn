@@ -69,7 +69,7 @@
         :rows="3"
         :placeholder="chatStore.hasActiveResearchContext ? localeStore.t('chat.placeholderWithResearchContext') : localeStore.t('chat.placeholder')"
           :disabled="chatStore.isStreaming"
-          @keydown.enter.ctrl="handleSend"
+          @keydown="handleInputKeydown"
         />
         <div class="input-actions">
           <span class="hint">{{ localeStore.t('chat.sendHint') }}</span>
@@ -126,6 +126,13 @@ function handleSend(): void {
   nextTick(() => {
     scrollToBottom()
   })
+}
+
+function handleInputKeydown(event: KeyboardEvent): void {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault()
+    handleSend()
+  }
 }
 
 async function handleRetry(messageId: number): Promise<void> {

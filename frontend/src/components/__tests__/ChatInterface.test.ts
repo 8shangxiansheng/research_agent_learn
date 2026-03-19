@@ -172,6 +172,33 @@ describe('ChatInterface', () => {
     expect((wrapper.get('[data-test="chat-input"]').element as HTMLTextAreaElement).value).toBe('')
   })
 
+  it('sends the message when pressing ctrl enter', async () => {
+    mockStore.currentSession = { id: 1, title: 'Research' }
+    mockStore.hasCurrentSession = true
+
+    const wrapper = mount(ChatInterface, {
+      global: {
+        stubs: {
+          MessageItem: true,
+          ElScrollbar: ElScrollbarStub,
+          ElInput: ElInputStub,
+          ElButton: ElButtonStub,
+        },
+      },
+    })
+
+    await wrapper.get('[data-test="chat-input"]').setValue('  shortcut send  ')
+    await wrapper.get('[data-test="chat-input"]').trigger('keydown', {
+      key: 'Enter',
+      ctrlKey: true,
+      preventDefault: vi.fn(),
+    })
+    await nextTick()
+
+    expect(mockStore.sendMessage).toHaveBeenCalledWith('shortcut send')
+    expect((wrapper.get('[data-test="chat-input"]').element as HTMLTextAreaElement).value).toBe('')
+  })
+
   it('sends follow-up messages through the active research context', async () => {
     mockStore.currentSession = { id: 1, title: 'Research' }
     mockStore.hasCurrentSession = true
