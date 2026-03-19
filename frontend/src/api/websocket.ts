@@ -13,6 +13,7 @@ export interface WebSocketMessage {
 
 export type MessageCallback = (msg: WebSocketMessage) => void
 export type ConnectionCallback = () => void
+export type DisconnectCallback = (event: CloseEvent, willReconnect: boolean, attempt: number, maxAttempts: number) => void
 export type ErrorCallback = (error: Event) => void
 
 export class ChatWebSocket {
@@ -20,7 +21,7 @@ export class ChatWebSocket {
   private sessionId: number
   private onMessage: MessageCallback
   private onConnect?: ConnectionCallback
-  private onDisconnect?: ConnectionCallback
+  private onDisconnect?: DisconnectCallback
   private onError?: ErrorCallback
   private reconnectAttempts: number = 0
   private maxReconnectAttempts: number = 5
@@ -30,7 +31,7 @@ export class ChatWebSocket {
     sessionId: number,
     onMessage: MessageCallback,
     onConnect?: ConnectionCallback,
-    onDisconnect?: ConnectionCallback,
+    onDisconnect?: DisconnectCallback,
     onError?: ErrorCallback
   ) {
     this.sessionId = sessionId
@@ -62,10 +63,11 @@ export class ChatWebSocket {
 
     this.ws.onclose = (event) => {
       console.log('WebSocket closed:', event.code, event.reason)
-      this.onDisconnect?.()
+      const willReconnect = event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts
+      const nextAttempt = willReconnect ? this.reconnectAttempts + 1 : this.reconnectAttempts
+      this.onDisconnect?.(event, willReconnect, nextAttempt, this.maxReconnectAttempts)
 
-      // Attempt reconnect if not closed intentionally
-      if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+      if (willReconnect) {
         this.reconnectAttempts++
         console.log(`Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
         setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts)
@@ -102,7 +104,7 @@ export function createChatWebSocket(
   sessionId: number,
   onMessage: MessageCallback,
   onConnect?: ConnectionCallback,
-  onDisconnect?: ConnectionCallback,
+  onDisconnect?: DisconnectCallback,
   onError?: ErrorCallback
 ): ChatWebSocket {
   return new ChatWebSocket(sessionId, onMessage, onConnect, onDisconnect, onError)

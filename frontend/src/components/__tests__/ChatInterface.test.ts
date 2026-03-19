@@ -14,6 +14,9 @@ const mockStore = {
   }>,
   isStreaming: false,
   streamingContent: '',
+  websocketStatus: 'idle' as 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error',
+  websocketStatusLabel: '',
+  websocketStatusMessage: '',
   sendMessage: vi.fn(),
   retryAssistantMessage: vi.fn(),
 }
@@ -26,6 +29,8 @@ const mockLocaleStore = {
     'chat.sendHint': 'Ctrl+Enter to send',
     'chat.send': 'Send',
     'chat.thinking': 'Thinking...',
+    'chat.status.connecting': 'Connecting',
+    'chat.status.reconnecting': 'Reconnecting',
   }[key] ?? key),
 }
 
@@ -88,6 +93,9 @@ describe('ChatInterface', () => {
     mockStore.currentMessages = []
     mockStore.isStreaming = false
     mockStore.streamingContent = ''
+    mockStore.websocketStatus = 'idle'
+    mockStore.websocketStatusLabel = ''
+    mockStore.websocketStatusMessage = ''
     mockStore.sendMessage.mockReset()
     mockStore.retryAssistantMessage.mockReset()
   })
@@ -105,6 +113,29 @@ describe('ChatInterface', () => {
     })
 
     expect(wrapper.text()).toContain('Select or create a session to start chatting')
+  })
+
+  it('renders localized websocket status when reconnecting', () => {
+    mockStore.currentSession = { id: 1, title: 'Research' }
+    mockStore.hasCurrentSession = true
+    mockStore.websocketStatus = 'reconnecting'
+    mockStore.websocketStatusLabel = 'Reconnecting'
+    mockStore.websocketStatusMessage = 'Trying to reconnect live response channel (2)'
+
+    const wrapper = mount(ChatInterface, {
+      global: {
+        stubs: {
+          MessageItem: true,
+          ElScrollbar: ElScrollbarStub,
+          ElInput: ElInputStub,
+          ElButton: ElButtonStub,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Reconnecting')
+    expect(wrapper.text()).toContain('Trying to reconnect live response channel (2)')
+    expect(wrapper.find('.connection-badge').classes()).toContain('is-reconnecting')
   })
 
   it('sends trimmed message and clears input', async () => {

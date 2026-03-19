@@ -1,7 +1,21 @@
 <template>
   <div class="chat-interface">
     <div class="chat-header">
-      <h2>{{ chatStore.currentSession?.title || localeStore.t('chat.selectSession') }}</h2>
+      <div class="chat-title-row">
+        <h2>{{ chatStore.currentSession?.title || localeStore.t('chat.selectSession') }}</h2>
+        <span
+          v-if="chatStore.websocketStatus !== 'idle' && chatStore.hasCurrentSession"
+          :class="['connection-badge', `is-${chatStore.websocketStatus}`]"
+        >
+          {{ chatStore.websocketStatusLabel }}
+        </span>
+      </div>
+      <p
+        v-if="chatStore.websocketStatus !== 'idle' && chatStore.hasCurrentSession"
+        class="connection-message"
+      >
+        {{ chatStore.websocketStatusMessage }}
+      </p>
     </div>
 
     <div v-if="!chatStore.hasCurrentSession" class="no-session">
@@ -144,10 +158,49 @@ watch(
   border-bottom: 1px solid #e4e7ed;
 }
 
+.chat-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .chat-header h2 {
   margin: 0;
   font-size: 18px;
   color: #303133;
+}
+
+.connection-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.connection-badge.is-connecting,
+.connection-badge.is-reconnecting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.connection-badge.is-connected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.connection-badge.is-disconnected,
+.connection-badge.is-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.connection-message {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .no-session {

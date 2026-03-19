@@ -11,6 +11,7 @@ import { resolveLocalizedErrorMessage } from '@/utils/localization'
 
 export const useChatStore = defineStore('chat', () => {
   const localeStore = useLocaleStore()
+  type WebSocketStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error'
   // State
   const sessions = ref<Session[]>([])
   const currentSession = ref<Session | null>(null)
@@ -20,6 +21,9 @@ export const useChatStore = defineStore('chat', () => {
   const isStreaming = ref(false)
   const streamingContent = ref('')
   const error = ref<string | null>(null)
+  const websocketStatus = ref<WebSocketStatus>('idle')
+  const websocketStatusDetail = ref('')
+  const websocketReconnectAttempt = ref(0)
 
   // WebSocket instance
   let websocket: ChatWebSocket | null = null
@@ -27,6 +31,38 @@ export const useChatStore = defineStore('chat', () => {
   // Getters
   const currentMessages = computed(() => messages.value)
   const hasCurrentSession = computed(() => currentSession.value !== null)
+  const websocketStatusLabel = computed(() => {
+    switch (websocketStatus.value) {
+      case 'connecting':
+        return localeStore.t('chat.status.connecting')
+      case 'connected':
+        return localeStore.t('chat.status.connected')
+      case 'reconnecting':
+        return localeStore.t('chat.status.reconnecting')
+      case 'disconnected':
+        return localeStore.t('chat.status.disconnected')
+      case 'error':
+        return localeStore.t('chat.status.error')
+      default:
+        return ''
+    }
+  })
+  const websocketStatusMessage = computed(() => {
+    switch (websocketStatus.value) {
+      case 'connecting':
+        return localeStore.t('chat.status.connectingDetail')
+      case 'connected':
+        return localeStore.t('chat.status.connectedDetail')
+      case 'reconnecting':
+        return `${localeStore.t('chat.status.reconnectingDetail')} (${websocketReconnectAttempt.value})`
+      case 'disconnected':
+        return websocketStatusDetail.value || localeStore.t('chat.status.disconnectedDetail')
+      case 'error':
+        return websocketStatusDetail.value || localeStore.t('chat.status.errorDetail')
+      default:
+        return ''
+    }
+  })
 
   // Actions
 
@@ -203,13 +239,35 @@ export const useChatStore = defineStore('chat', () => {
   function connectWebSocket(sessionId: number): void {
     // Disconnect existing
     disconnectWebSocket()
+    websocketStatus.value = 'connecting'
+    websocketStatusDetail.value = ''
+    websocketReconnectAttempt.value = 0
 
     websocket = new ChatWebSocket(
       sessionId,
       handleWebSocketMessage,
-      () => console.log('WebSocket connected'),
-      () => console.log('WebSocket disconnected'),
+      () => {
+        console.log('WebSocket connected')
+        websocketStatus.value = 'connected'
+        websocketStatusDetail.value = localeStore.t('chat.status.connectedDetail')
+        websocketReconnectAttempt.value = 0
+      },
+      (event, willReconnect, attempt) => {
+        console.log('WebSocket disconnected')
+        if (willReconnect) {
+          websocketStatus.value = 'reconnecting'
+          websocketReconnectAttempt.value = attempt
+          websocketStatusDetail.value = `${localeStore.t('chat.status.reconnectingDetail')} (${attempt})`
+          return
+        }
+
+        websocketStatus.value = 'disconnected'
+        websocketReconnectAttempt.value = 0
+        websocketStatusDetail.value = event.reason || localeStore.t('chat.status.disconnectedDetail')
+      },
       (e) => {
+        websocketStatus.value = 'error'
+        websocketStatusDetail.value = localeStore.t('chat.status.errorDetail')
         error.value = localeStore.t('chat.error.websocket')
         console.error(e)
       }
@@ -225,6 +283,9 @@ export const useChatStore = defineStore('chat', () => {
       websocket.disconnect()
       websocket = null
     }
+    websocketStatus.value = 'idle'
+    websocketStatusDetail.value = ''
+    websocketReconnectAttempt.value = 0
   }
 
   /**
@@ -277,6 +338,8 @@ export const useChatStore = defineStore('chat', () => {
     if (websocket && websocket.isConnected()) {
       websocket.send(content)
     } else {
+      websocketStatus.value = 'disconnected'
+      websocketStatusDetail.value = localeStore.t('chat.status.disconnectedDetail')
       error.value = localeStore.t('chat.error.websocketDisconnected')
     }
   }
@@ -298,6 +361,9 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming,
     streamingContent,
     error,
+    websocketStatus,
+    websocketStatusLabel,
+    websocketStatusMessage,
 
     // Getters
     currentMessages,

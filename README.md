@@ -13,6 +13,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Session export to Markdown for note taking and sharing
 - Assistant answer retry for regenerating the latest response in place
 - Real-time streaming responses via WebSocket
+- Localized WebSocket connection, reconnect, and disconnect status prompts in the chat workspace
 - arXiv paper search integration
 - Modern Vue3 + ElementPlus frontend
 - FastAPI backend with SQLAlchemy ORM
@@ -23,7 +24,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend tests: `27` passing
+- Frontend tests: `28` passing
 - Backend API tests: `25` passing
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stable inline source markers such as `[S1]`
