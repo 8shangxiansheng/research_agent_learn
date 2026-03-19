@@ -98,4 +98,73 @@ describe('MessageItem', () => {
 
     expect(wrapper.find('[data-test="retry-button"]').exists()).toBe(false)
   })
+
+  it('renders a research badge for injected research brief messages', () => {
+    const wrapper = mount(MessageItem, {
+      props: {
+        message: {
+          id: 77,
+          session_id: 1,
+          role: 'assistant',
+          content: '## Research Brief: transformers\n\nSummary here.',
+          created_at: '2026-03-18T12:00:00.000Z',
+        },
+      },
+      global: {
+        stubs: {
+          RefreshRight: true,
+          'el-avatar': {
+            template: '<div class="avatar-stub" />',
+          },
+          'el-button': {
+            template: '<button><slot /></button>',
+          },
+          'el-icon': {
+            template: '<span><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Research')
+    expect(wrapper.find('.message-badge').exists()).toBe(true)
+  })
+
+  it('allows long research brief messages to collapse and expand', async () => {
+    const longContent = '# Research Brief\n\n' + 'Long line. '.repeat(120)
+    const wrapper = mount(MessageItem, {
+      props: {
+        message: {
+          id: 88,
+          session_id: 1,
+          role: 'assistant',
+          content: longContent,
+          created_at: '2026-03-18T12:00:00.000Z',
+        },
+      },
+      global: {
+        stubs: {
+          RefreshRight: true,
+          'el-avatar': {
+            template: '<div class="avatar-stub" />',
+          },
+          'el-button': {
+            template: '<button><slot /></button>',
+          },
+          'el-icon': {
+            template: '<span><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.find('.collapse-toggle').exists()).toBe(true)
+    expect(wrapper.find('.message-text').classes()).toContain('collapsed')
+    expect(wrapper.find('.collapse-toggle').text()).toBe('Expand')
+
+    await wrapper.get('.collapse-toggle').trigger('click')
+
+    expect(wrapper.find('.message-text').classes()).not.toContain('collapsed')
+    expect(wrapper.find('.collapse-toggle').text()).toBe('Collapse')
+  })
 })

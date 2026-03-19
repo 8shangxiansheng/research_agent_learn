@@ -1,9 +1,9 @@
 """
 FastAPI API endpoints for Academic Q&A Agent.
-Provides REST routes for sessions/messages and WebSocket for streaming agent responses.
+Provides REST routes for sessions, research tasks, messages, and WebSocket streaming.
 """
-import json
 import re
+import json
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
@@ -12,10 +12,50 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import crud, schemas
 from app.services.agent import get_agent
+from app.services.research import get_research_orchestrator
 
 
 # Create router with API prefix
 router = APIRouter(prefix="/api")
+
+
+def _serialize_research_task(task: object) -> schemas.ResearchTaskResponse:
+    """Convert a persisted research task ORM object into API shape."""
+    return schemas.ResearchTaskResponse(
+        id=task.id,
+        session_id=task.session_id,
+        query=task.query,
+        status=task.status,
+        generated_at=task.created_at,
+        report_filename=task.report_filename,
+        plan=json.loads(task.plan_json),
+        sources=json.loads(task.sources_json),
+        answer=task.answer,
+        report_markdown=task.report_markdown,
+    )
+
+
+def _build_research_message_content(task: object, mode: str = "summary") -> str:
+    """Render a persisted research task as chat-friendly markdown."""
+    sources = json.loads(task.sources_json)
+    if mode == "full":
+        return task.report_markdown.strip()
+
+    lines = [
+        f"## Research Brief: {task.query}",
+        "",
+        task.answer,
+        "",
+    ]
+
+    if sources:
+        lines.extend(["### Key Sources", ""])
+        for source in sources[:3]:
+            lines.append(
+                f"- [{source['citation_label']}] {source['title']} ({source['published_at'][:10]})"
+            )
+
+    return "\n".join(lines).strip()
 
 
 # ========== Session Endpoints ==========
@@ -89,6 +129,104 @@ def get_messages(
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return crud.get_messages_by_session(db, session_id)
+
+
+@router.post(
+    "/research/tasks",
+    response_model=schemas.ResearchTaskResponse,
+)
+async def run_research_task(
+    task: schemas.ResearchTaskCreate,
+    db: Session = Depends(get_db),
+):
+    """Run a minimal deep research workflow and return structured results."""
+    query = task.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Research query cannot be empty")
+
+    if task.session_id is not None and crud.get_session(db, task.session_id) is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    max_sources = max(1, min(task.max_sources, 5))
+    result = await get_research_orchestrator().run(query=query, max_sources=max_sources)
+    db_task = crud.create_research_task(
+        db,
+        session_id=task.session_id,
+        result=result,
+    )
+    return _serialize_research_task(db_task)
+
+
+@router.get(
+    "/sessions/{session_id}/research-tasks",
+    response_model=list[schemas.ResearchTaskResponse],
+)
+def list_research_tasks(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """List persisted research tasks for one session."""
+    session = crud.get_session(db, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return [_serialize_research_task(task) for task in crud.get_research_tasks_by_session(db, session_id)]
+
+
+@router.get(
+    "/research/tasks/{task_id}",
+    response_model=schemas.ResearchTaskResponse,
+)
+def get_research_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get one persisted research task."""
+    task = crud.get_research_task(db, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+    return _serialize_research_task(task)
+
+
+@router.post(
+    "/research/tasks/{task_id}/share-to-session",
+    response_model=schemas.MessageResponse,
+    status_code=201,
+)
+def share_research_task_to_session(
+    task_id: int,
+    payload: schemas.ResearchShareRequest,
+    db: Session = Depends(get_db),
+):
+    """Append a research brief into its associated session as an assistant message."""
+    task = crud.get_research_task(db, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+    if task.session_id is None:
+        raise HTTPException(status_code=400, detail="Research task is not associated with a session")
+
+    session = crud.get_session(db, task.session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return crud.create_message_direct(
+        db,
+        session_id=task.session_id,
+        role="assistant",
+        content=_build_research_message_content(task, mode=payload.mode),
+    )
+
+
+@router.delete("/research/tasks/{task_id}")
+def delete_research_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete one persisted research task."""
+    deleted = crud.delete_research_task(db, task_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Research task not found")
+    return {"message": "Research task deleted successfully"}
 
 
 def _slugify_title(title: str) -> str:

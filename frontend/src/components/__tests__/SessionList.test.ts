@@ -162,7 +162,7 @@ describe('SessionList', () => {
       },
     })
 
-    await wrapper.vm.$.setupState.handleCommand('export', session)
+    await (wrapper.vm as any).handleCommand('export', session)
 
     expect(mockStore.exportCurrentSession).toHaveBeenCalledWith(session)
     expect(messageSuccess).toHaveBeenCalledWith('Session exported')

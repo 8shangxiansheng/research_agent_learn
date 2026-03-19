@@ -173,6 +173,27 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  async function appendResearchTask(taskId: number, mode: 'summary' | 'full' = 'summary'): Promise<void> {
+    if (!currentSession.value) {
+      error.value = 'No active session'
+      return
+    }
+
+    try {
+      error.value = null
+      const message = await api.shareResearchTaskToSession(taskId, mode)
+      messages.value = [...messages.value, message]
+      currentSession.value = {
+        ...currentSession.value,
+        messages: messages.value,
+      }
+    } catch (e) {
+      error.value = 'Failed to add research brief to session'
+      console.error(e)
+      throw e
+    }
+  }
+
   /**
    * Connect WebSocket for current session.
    */
@@ -287,6 +308,7 @@ export const useChatStore = defineStore('chat', () => {
     deleteSession,
     exportCurrentSession,
     retryAssistantMessage,
+    appendResearchTask,
     sendMessage,
     disconnectWebSocket,
     clearError

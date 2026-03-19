@@ -86,3 +86,10 @@ export async function retryAssistantMessage(sessionId: number, messageId: number
   const response = await axios.post<Message>(`${API_BASE}/sessions/${sessionId}/messages/${messageId}/retry`)
   return response.data
 }
+
+export async function shareResearchTaskToSession(taskId: number, mode: 'summary' | 'full' = 'summary'): Promise<Message> {
+  const response = await axios.post<Message>(`${API_BASE}/research/tasks/${taskId}/share-to-session`, {
+    mode,
+  })
+  return response.data
+}

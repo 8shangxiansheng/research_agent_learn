@@ -1,11 +1,12 @@
 <template>
-  <div class="message-item" :class="[message.role]">
+  <div class="message-item" :class="[message.role, { research: isResearchMessage }]">
     <div class="message-avatar">
       <el-avatar :size="36" :icon="message.role === 'user' ? User : ChatDotSquare" />
     </div>
     <div class="message-content">
       <div class="message-header">
         <span class="message-role">{{ message.role === 'user' ? 'You' : 'Assistant' }}</span>
+        <span v-if="isResearchMessage" class="message-badge">Research</span>
         <span class="message-time">{{ formatTime(message.created_at) }}</span>
         <el-button
           v-if="message.role === 'assistant' && props.canRetry !== false"
@@ -18,13 +19,25 @@
           Retry
         </el-button>
       </div>
-      <div class="message-text" v-html="renderedContent"></div>
+      <div
+        class="message-text"
+        :class="{ collapsed: showCollapseToggle && !isExpanded }"
+        v-html="renderedContent"
+      ></div>
+      <button
+        v-if="showCollapseToggle"
+        type="button"
+        class="collapse-toggle"
+        @click="isExpanded = !isExpanded"
+      >
+        {{ isExpanded ? 'Collapse' : 'Expand' }}
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { ChatDotSquare, User } from '@element-plus/icons-vue'
 import type { Message } from '@/api/sessions'
@@ -48,6 +61,26 @@ const md = new MarkdownIt({
 
 const renderedContent = computed(() => {
   return md.render(props.message.content)
+})
+
+const isExpanded = ref(false)
+
+const isResearchMessage = computed(() => {
+  if (props.message.role !== 'assistant') {
+    return false
+  }
+
+  const content = props.message.content.trimStart()
+  return content.startsWith('## Research Brief:') || content.startsWith('# Research Brief')
+})
+
+const showCollapseToggle = computed(() => {
+  if (!isResearchMessage.value) {
+    return false
+  }
+
+  const content = props.message.content.trimStart()
+  return content.startsWith('# Research Brief') || content.length > 500
 })
 
 function formatTime(date: string): string {
@@ -74,6 +107,11 @@ function formatTime(date: string): string {
   background: #f5f7fa;
 }
 
+.message-item.assistant.research {
+  background: linear-gradient(180deg, #f3f7ff 0%, #f8fafc 100%);
+  border: 1px solid #dbeafe;
+}
+
 .message-avatar {
   flex-shrink: 0;
 }
@@ -96,6 +134,19 @@ function formatTime(date: string): string {
   color: #303133;
 }
 
+.message-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .message-time {
   font-size: 12px;
   color: #909399;
@@ -110,6 +161,33 @@ function formatTime(date: string): string {
   line-height: 1.6;
   color: #606266;
   overflow-wrap: break-word;
+}
+
+.message-text.collapsed {
+  max-height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+
+.message-text.collapsed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(248, 250, 252, 0.96) 100%);
+}
+
+.collapse-toggle {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .message-text :deep(p) {

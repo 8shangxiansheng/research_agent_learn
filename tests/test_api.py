@@ -20,6 +20,7 @@ from starlette.websockets import WebSocketDisconnect
 import app.api as api_module
 from app.database import Base, get_db
 from app.main import app
+from app.services.tools import _dedupe_and_sort_sources
 
 
 @pytest.fixture()
@@ -365,3 +366,223 @@ def test_retry_rejects_non_latest_assistant_message(
 
     assert retry_response.status_code == 400
     assert retry_response.json()["detail"] == "Only the latest assistant message can be retried"
+
+
+def test_research_task_returns_structured_result(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            return {
+                "query": query,
+                "status": "completed",
+                "generated_at": "2026-03-19T10:00:00Z",
+                "report_filename": "graph-neural-networks.md",
+                "plan": ["Understand the topic", "Retrieve papers", "Write brief"],
+                "sources": [
+                    {
+                        "source_id": "arxiv-1",
+                        "citation_label": "S1",
+                        "title": "Graph Neural Networks",
+                        "authors": ["Author A", "Author B"],
+                        "abstract": "A paper about graph neural networks.",
+                        "published_at": "2024-01-01T00:00:00Z",
+                        "url": "https://arxiv.org/abs/1234.5678",
+                        "pdf_url": "https://arxiv.org/pdf/1234.5678.pdf",
+                        "source_type": "arxiv",
+                        "score": max_sources,
+                    }
+                ],
+                "answer": "This field summarizes the research topic.",
+                "report_markdown": "# Research Brief\n",
+            }
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    session_response = client.post("/api/sessions", json={"title": "Research Session"})
+    session_id = session_response.json()["id"]
+
+    response = client.post(
+        "/api/research/tasks",
+        json={"query": "graph neural networks", "max_sources": 2, "session_id": session_id},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] > 0
+    assert payload["session_id"] == session_id
+    assert payload["query"] == "graph neural networks"
+    assert payload["status"] == "completed"
+    assert payload["report_filename"] == "graph-neural-networks.md"
+    assert payload["plan"] == ["Understand the topic", "Retrieve papers", "Write brief"]
+    assert payload["sources"][0]["citation_label"] == "S1"
+    assert payload["sources"][0]["title"] == "Graph Neural Networks"
+    assert payload["answer"] == "This field summarizes the research topic."
+
+    list_response = client.get(f"/api/sessions/{session_id}/research-tasks")
+    assert list_response.status_code == 200
+    tasks = list_response.json()
+    assert len(tasks) == 1
+    assert tasks[0]["id"] == payload["id"]
+    assert tasks[0]["query"] == "graph neural networks"
+
+    detail_response = client.get(f"/api/research/tasks/{payload['id']}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["session_id"] == session_id
+
+
+def test_research_task_rejects_empty_query(client: TestClient) -> None:
+    response = client.post(
+        "/api/research/tasks",
+        json={"query": "   "},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Research query cannot be empty"
+
+
+def test_research_task_rejects_unknown_session(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            raise AssertionError("should not be called")
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    response = client.post(
+        "/api/research/tasks",
+        json={"query": "transformers", "session_id": 9999},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Session not found"
+
+
+def test_share_research_task_to_session_creates_assistant_message(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            return {
+                "query": query,
+                "status": "completed",
+                "generated_at": "2026-03-19T10:00:00Z",
+                "report_filename": "transformers.md",
+                "plan": ["Collect sources"],
+                "sources": [
+                    {
+                        "source_id": "arxiv-1",
+                        "citation_label": "S1",
+                        "title": "Attention Is All You Need",
+                        "authors": ["Author A"],
+                        "abstract": "Transformer paper.",
+                        "published_at": "2017-06-01T00:00:00Z",
+                        "url": "https://arxiv.org/abs/1706.03762",
+                        "pdf_url": "https://arxiv.org/pdf/1706.03762.pdf",
+                        "source_type": "arxiv",
+                        "score": max_sources,
+                    }
+                ],
+                "answer": "Transformers improve sequence modeling. [S1]",
+                "report_markdown": "# Research Brief\n",
+            }
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    session_response = client.post("/api/sessions", json={"title": "Research Session"})
+    session_id = session_response.json()["id"]
+    task_response = client.post(
+        "/api/research/tasks",
+        json={"query": "transformers", "session_id": session_id},
+    )
+    task_id = task_response.json()["id"]
+
+    share_response = client.post(
+        f"/api/research/tasks/{task_id}/share-to-session",
+        json={"mode": "summary"},
+    )
+
+    assert share_response.status_code == 201
+    payload = share_response.json()
+    assert payload["session_id"] == session_id
+    assert payload["role"] == "assistant"
+    assert "Research Brief: transformers" in payload["content"]
+    assert "[S1] Attention Is All You Need" in payload["content"]
+
+    full_share_response = client.post(
+        f"/api/research/tasks/{task_id}/share-to-session",
+        json={"mode": "full"},
+    )
+    assert full_share_response.status_code == 201
+    assert full_share_response.json()["content"] == "# Research Brief"
+
+
+def test_delete_research_task_removes_persisted_record(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            return {
+                "query": query,
+                "status": "completed",
+                "generated_at": "2026-03-19T10:00:00Z",
+                "report_filename": "history.md",
+                "plan": ["Collect sources"],
+                "sources": [],
+                "answer": "History payload",
+                "report_markdown": "# Research Brief",
+            }
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    session_response = client.post("/api/sessions", json={"title": "Research Session"})
+    session_id = session_response.json()["id"]
+    task_response = client.post(
+        "/api/research/tasks",
+        json={"query": "history cleanup", "session_id": session_id},
+    )
+    task_id = task_response.json()["id"]
+
+    delete_response = client.delete(f"/api/research/tasks/{task_id}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["message"] == "Research task deleted successfully"
+
+    detail_response = client.get(f"/api/research/tasks/{task_id}")
+    assert detail_response.status_code == 404
+
+
+def test_source_dedup_and_sort_prefers_high_score_and_recent_date() -> None:
+    deduped = _dedupe_and_sort_sources(
+        [
+            {
+                "source_id": "arxiv-1",
+                "arxiv_id": "2401.00001",
+                "title": "Same Paper",
+                "published_at": "2024-01-01T00:00:00Z",
+                "score": 2,
+            },
+            {
+                "source_id": "arxiv-2",
+                "arxiv_id": "2401.00001",
+                "title": "Same Paper",
+                "published_at": "2024-02-01T00:00:00Z",
+                "score": 3,
+            },
+            {
+                "source_id": "arxiv-3",
+                "arxiv_id": "2402.00002",
+                "title": "Another Paper",
+                "published_at": "2023-12-01T00:00:00Z",
+                "score": 1,
+            },
+        ]
+    )
+
+    assert len(deduped) == 2
+    assert deduped[0]["source_id"] == "arxiv-2"
+    assert deduped[1]["source_id"] == "arxiv-3"

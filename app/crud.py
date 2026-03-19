@@ -1,12 +1,13 @@
 """
 CRUD operations for Academic Q&A Agent.
-Provides clean database access functions for sessions and messages.
+Provides clean database access functions for sessions, messages, and research tasks.
 """
-from typing import List, Optional
+import json
+from typing import Any, List, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import ChatSession, ChatMessage, MessageRole
+from app.models import ChatSession, ChatMessage, MessageRole, ResearchTask
 from app.schemas import SessionCreate, SessionUpdate, MessageCreate
 
 
@@ -212,3 +213,54 @@ def create_message_direct(
     db.commit()
     db.refresh(db_message)
     return db_message
+
+
+# ========== Research Task CRUD ==========
+
+def create_research_task(
+    db: Session,
+    *,
+    session_id: int | None,
+    result: dict[str, Any],
+) -> ResearchTask:
+    """Persist a completed research task result."""
+    db_task = ResearchTask(
+        session_id=session_id,
+        query=result["query"],
+        status=result["status"],
+        report_filename=result["report_filename"],
+        answer=result["answer"],
+        plan_json=json.dumps(result["plan"]),
+        sources_json=json.dumps(result["sources"]),
+        report_markdown=result["report_markdown"],
+    )
+    db.add(db_task)
+    db.commit()
+    db.refresh(db_task)
+    return db_task
+
+
+def get_research_task(db: Session, task_id: int) -> Optional[ResearchTask]:
+    """Get one persisted research task by id."""
+    return db.query(ResearchTask).filter(ResearchTask.id == task_id).first()
+
+
+def get_research_tasks_by_session(db: Session, session_id: int) -> List[ResearchTask]:
+    """List research tasks for a session, newest first."""
+    return (
+        db.query(ResearchTask)
+        .filter(ResearchTask.session_id == session_id)
+        .order_by(ResearchTask.created_at.desc())
+        .all()
+    )
+
+
+def delete_research_task(db: Session, task_id: int) -> bool:
+    """Delete a persisted research task."""
+    task = get_research_task(db, task_id)
+    if task is None:
+        return False
+
+    db.delete(task)
+    db.commit()
+    return True

@@ -1,6 +1,6 @@
 """
 Database models for Academic Q&A Agent application.
-Defines ChatSession and ChatMessage models for multi-turn conversation tracking.
+Defines chat and research task persistence models.
 """
 from datetime import UTC, datetime
 from typing import List
@@ -48,6 +48,12 @@ class ChatSession(Base):
         cascade="all, delete-orphan",
         order_by="ChatMessage.created_at"
     )
+    research_tasks: Mapped[List["ResearchTask"]] = relationship(
+        "ResearchTask",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="ResearchTask.created_at.desc()",
+    )
     
     def __repr__(self) -> str:
         return f"<ChatSession(id={self.id}, title='{self.title}')>"
@@ -83,3 +89,34 @@ class ChatMessage(Base):
     
     def __repr__(self) -> str:
         return f"<ChatMessage(id={self.id}, role='{self.role}', session_id={self.session_id})>"
+
+
+class ResearchTask(Base):
+    """Persisted research workflow result associated with an optional session."""
+
+    __tablename__ = "research_tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("chat_sessions.id"),
+        nullable=True,
+        index=True,
+    )
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="completed")
+    report_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    plan_json: Mapped[str] = mapped_column(Text, nullable=False)
+    sources_json: Mapped[str] = mapped_column(Text, nullable=False)
+    report_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+    )
+
+    session: Mapped["ChatSession | None"] = relationship("ChatSession", back_populates="research_tasks")
+
+    def __repr__(self) -> str:
+        return f"<ResearchTask(id={self.id}, session_id={self.session_id}, query='{self.query[:40]}')>"

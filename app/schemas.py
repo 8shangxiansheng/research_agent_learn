@@ -69,3 +69,52 @@ class MessageCreateWithSession(BaseModel):
     """Schema for creating a message with session context (for WebSocket)."""
     role: Literal["user", "assistant"]
     content: str
+
+
+# ========== Research Schemas ==========
+
+class ResearchTaskCreate(BaseModel):
+    """Schema for starting a research workflow."""
+    query: str
+    max_sources: int = 3
+    session_id: Optional[int] = None
+
+
+class ResearchShareRequest(BaseModel):
+    """Schema for injecting research results back into a chat session."""
+    mode: Literal["summary", "full"] = "summary"
+
+
+class ResearchSourceResponse(BaseModel):
+    """Normalized source metadata for research results."""
+    source_id: str
+    citation_label: str
+    arxiv_id: Optional[str] = None
+    title: str
+    authors: list[str]
+    abstract: str
+    published_at: str
+    url: str
+    pdf_url: Optional[str] = None
+    primary_category: Optional[str] = None
+    categories: list[str] = []
+    comment: Optional[str] = None
+    journal_ref: Optional[str] = None
+    doi: Optional[str] = None
+    citation_text: Optional[str] = None
+    source_type: str
+    score: int
+
+
+class ResearchTaskResponse(BaseModel):
+    """Schema for the minimal research workflow result."""
+    id: int
+    session_id: Optional[int] = None
+    query: str
+    status: str
+    generated_at: datetime
+    report_filename: str
+    plan: list[str]
+    sources: list[ResearchSourceResponse]
+    answer: str
+    report_markdown: str

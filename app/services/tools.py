@@ -1,10 +1,127 @@
 """
 Tools for Academic Q&A Agent.
-Provides arxiv search tool for academic paper retrieval.
+Provides arXiv retrieval utilities and LangChain-compatible tool wrappers.
 """
+from datetime import datetime
+from typing import Any
+
 import arxiv
-from typing import List, Dict, Any, Optional
 from langchain_core.tools import tool
+
+
+def _extract_arxiv_id(entry_id: str) -> str:
+    """Extract a readable arXiv identifier from an entry URL."""
+    return entry_id.rstrip("/").split("/")[-1]
+
+
+def _build_citation(
+    *,
+    title: str,
+    authors: list[str],
+    published_at: str,
+    journal_ref: str | None,
+    doi: str | None,
+) -> str:
+    """Build a compact citation string for UI and report rendering."""
+    author_text = ", ".join(authors[:3]) if authors else "Unknown authors"
+    if len(authors) > 3:
+        author_text += ", et al."
+
+    year = published_at[:4] if published_at else "n.d."
+    parts = [f"{author_text} ({year}). {title}."]
+    if journal_ref:
+        parts.append(journal_ref)
+    if doi:
+        parts.append(f"DOI: {doi}")
+    return " ".join(parts)
+
+
+def _dedupe_and_sort_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove duplicate papers and return a stable ranking order."""
+    unique_sources: dict[str, dict[str, Any]] = {}
+
+    def published_sort_value(source: dict[str, Any]) -> float:
+        published_at = source.get("published_at", "")
+        if not published_at:
+            return 0.0
+        try:
+            return datetime.fromisoformat(published_at.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return 0.0
+
+    for source in sources:
+        dedupe_key = (
+            source.get("doi")
+            or source.get("arxiv_id")
+            or source.get("url")
+            or source.get("title", "").strip().lower()
+        )
+        existing = unique_sources.get(dedupe_key)
+        if existing is None:
+            unique_sources[dedupe_key] = source
+            continue
+
+        existing_score = existing.get("score", 0)
+        current_score = source.get("score", 0)
+        existing_date = published_sort_value(existing)
+        current_date = published_sort_value(source)
+        if (current_score, current_date) > (existing_score, existing_date):
+            unique_sources[dedupe_key] = source
+
+    return sorted(
+        unique_sources.values(),
+        key=lambda source: (
+            -int(source.get("score", 0)),
+            -published_sort_value(source),
+            source.get("title", "").lower(),
+        ),
+    )
+
+
+def search_arxiv_papers(query: str, max_results: int = 5) -> list[dict[str, Any]]:
+    """Return normalized arXiv search results for downstream research flows."""
+    client = arxiv.Client()
+    search = arxiv.Search(
+        query=query,
+        max_results=max_results,
+        sort_by=arxiv.SortCriterion.Relevance,
+    )
+    papers: list[dict[str, Any]] = []
+
+    for index, paper in enumerate(client.results(search), start=1):
+        authors = [author.name for author in paper.authors]
+        published_at = paper.published.isoformat()
+        arxiv_id = _extract_arxiv_id(paper.entry_id)
+        journal_ref = getattr(paper, "journal_ref", None)
+        doi = getattr(paper, "doi", None)
+        papers.append(
+            {
+                "source_id": f"arxiv-{index}",
+                "arxiv_id": arxiv_id,
+                "title": paper.title,
+                "authors": authors,
+                "abstract": paper.summary,
+                "published_at": published_at,
+                "url": paper.entry_id,
+                "pdf_url": getattr(paper, "pdf_url", None),
+                "primary_category": getattr(paper, "primary_category", None),
+                "categories": list(getattr(paper, "categories", []) or []),
+                "comment": getattr(paper, "comment", None),
+                "journal_ref": journal_ref,
+                "doi": doi,
+                "citation_text": _build_citation(
+                    title=paper.title,
+                    authors=authors,
+                    published_at=published_at,
+                    journal_ref=journal_ref,
+                    doi=doi,
+                ),
+                "source_type": "arxiv",
+                "score": max(max_results - index + 1, 1),
+            }
+        )
+
+    return _dedupe_and_sort_sources(papers)
 
 
 @tool
@@ -20,43 +137,30 @@ def arxiv_search(query: str, max_results: int = 5) -> str:
         Formatted string with paper information including title, authors, abstract, and URL
     """
     try:
-        # Create arxiv client
-        client = arxiv.Client()
-
-        # Search for papers
-        search = arxiv.Search(
-            query=query,
-            max_results=max_results,
-            sort_by=arxiv.SortCriterion.Relevance
-        )
-
-        # Collect results
-        results = list(client.results(search))
-
+        results = search_arxiv_papers(query=query, max_results=max_results)
         if not results:
             return f"No papers found for query: '{query}'"
 
-        # Format results
         formatted_results = []
         for i, paper in enumerate(results, 1):
-            authors = ", ".join([author.name for author in paper.authors[:3]])
-            if len(paper.authors) > 3:
+            authors = ", ".join(paper["authors"][:3])
+            if len(paper["authors"]) > 3:
                 authors += " et al."
 
             formatted_results.append(
                 f"Paper {i}:\n"
-                f"  Title: {paper.title}\n"
+                f"  Title: {paper['title']}\n"
                 f"  Authors: {authors}\n"
-                f"  Published: {paper.published.strftime('%Y-%m-%d')}\n"
-                f"  ArXiv ID: {paper.entry_id}\n"
-                f"  URL: {paper.entry_id}\n"
-                f"  Abstract: {paper.summary[:500]}{'...' if len(paper.summary) > 500 else ''}\n"
+                f"  Published: {paper['published_at'][:10]}\n"
+                f"  ArXiv ID: {paper['url']}\n"
+                f"  URL: {paper['url']}\n"
+                f"  Abstract: {paper['abstract'][:500]}{'...' if len(paper['abstract']) > 500 else ''}\n"
             )
 
         return "\n".join(formatted_results)
 
-    except Exception as e:
-        return f"Error searching arXiv: {str(e)}"
+    except Exception as exc:
+        return f"Error searching arXiv: {str(exc)}"
 
 
 class ArxivSearchTool:
