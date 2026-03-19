@@ -13,15 +13,19 @@ from app.database import get_db
 from app import crud, schemas
 from app.services.agent import get_agent
 from app.services.research import get_research_orchestrator
+from app.services.research.orchestrator import ResearchOrchestrator
 from app.services.research.document_parser import parse_research_document
 
 
 # Create router with API prefix
 router = APIRouter(prefix="/api")
+_citation_orchestrator = ResearchOrchestrator()
 
 
 def _serialize_research_task(task: object) -> schemas.ResearchTaskResponse:
     """Convert a persisted research task ORM object into API shape."""
+    sources = json.loads(task.sources_json)
+    evidence_map = _citation_orchestrator.build_evidence_map(task.answer, sources)
     return schemas.ResearchTaskResponse(
         id=task.id,
         session_id=task.session_id,
@@ -30,7 +34,8 @@ def _serialize_research_task(task: object) -> schemas.ResearchTaskResponse:
         generated_at=task.created_at,
         report_filename=task.report_filename,
         plan=json.loads(task.plan_json),
-        sources=json.loads(task.sources_json),
+        sources=sources,
+        evidence_map=evidence_map,
         answer=task.answer,
         report_markdown=task.report_markdown,
     )

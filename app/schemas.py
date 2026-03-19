@@ -119,6 +119,13 @@ class ResearchSourceResponse(BaseModel):
     score: int
 
 
+class ResearchEvidenceItemResponse(BaseModel):
+    """Structured claim-to-source mapping derived from the synthesized answer."""
+    claim: str
+    citation_labels: list[str]
+    source_titles: list[str]
+
+
 class ResearchTaskResponse(BaseModel):
     """Schema for the minimal research workflow result."""
     id: int
@@ -129,5 +136,6 @@ class ResearchTaskResponse(BaseModel):
     report_filename: str
     plan: list[str]
     sources: list[ResearchSourceResponse]
+    evidence_map: list[ResearchEvidenceItemResponse] = []
     answer: str
     report_markdown: str

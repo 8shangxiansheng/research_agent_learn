@@ -188,6 +188,29 @@
         </ul>
       </section>
 
+      <section class="card">
+        <h4>{{ localeStore.t('research.evidence') }}</h4>
+        <ul v-if="researchStore.currentTask.evidence_map.length" class="evidence-list">
+          <li
+            v-for="item in researchStore.currentTask.evidence_map"
+            :key="`${item.claim}-${item.citation_labels.join('-')}`"
+            class="evidence-item"
+          >
+            <p class="evidence-claim">{{ item.claim }}</p>
+            <div class="evidence-citations">
+              <span
+                v-for="label in item.citation_labels"
+                :key="label"
+                class="citation-chip"
+              >
+                [{{ label }}]
+              </span>
+            </div>
+          </li>
+        </ul>
+        <p v-else class="history-empty">{{ localeStore.t('research.evidenceEmpty') }}</p>
+      </section>
+
       <section class="card report-card">
         <div class="report-header">
           <h4>{{ localeStore.t('research.answer') }}</h4>
@@ -639,6 +662,33 @@ watch(
 .source-links a {
   font-size: 12px;
   font-weight: 500;
+}
+
+.evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.evidence-item {
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.evidence-claim {
+  margin: 0 0 8px;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.evidence-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .report-card {

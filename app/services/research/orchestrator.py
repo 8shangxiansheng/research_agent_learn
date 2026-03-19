@@ -13,6 +13,8 @@ class ResearchOrchestrator:
 
     _INLINE_CITATION_PATTERN = re.compile(r"\[\s*(S\d+)\s*\]")
     _BARE_CITATION_PATTERN = re.compile(r"(?<!\[)\b(S\d+)\b(?!\])")
+    _STRICT_CITATION_PATTERN = re.compile(r"\[(S\d+)\]")
+    _SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
 
     def _build_report_filename(self, query: str) -> str:
         safe = "".join(char.lower() if char.isalnum() else "-" for char in query.strip())
@@ -32,11 +34,82 @@ class ResearchOrchestrator:
         normalized = self._INLINE_CITATION_PATTERN.sub(r"[\1]", answer)
         return self._BARE_CITATION_PATTERN.sub(r"[\1]", normalized)
 
+    def _remove_unknown_citations(self, answer: str, available_labels: set[str]) -> str:
+        """Drop citation markers that do not map to the current source set."""
+        def replace(match: re.Match[str]) -> str:
+            label = match.group(1)
+            return match.group(0) if label in available_labels else ""
+
+        normalized = self._STRICT_CITATION_PATTERN.sub(replace, answer)
+        normalized = re.sub(r"\s{2,}", " ", normalized)
+        normalized = re.sub(r"\s+([,.;:])", r"\1", normalized)
+        return normalized.strip()
+
+    def _split_claim_segments(self, answer: str) -> list[str]:
+        """Split the answer into citation-sized claim segments."""
+        blocks = [block.strip() for block in answer.split("\n") if block.strip()]
+        segments: list[str] = []
+        for block in blocks:
+            sentence_like = [part.strip() for part in self._SENTENCE_SPLIT_PATTERN.split(block) if part.strip()]
+            segments.extend(sentence_like or [block])
+        return segments
+
+    def build_evidence_map(
+        self,
+        answer: str,
+        sources: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Derive a structured claim-to-source view from the synthesized answer."""
+        source_titles = {source["citation_label"]: source["title"] for source in sources}
+        evidence_items: list[dict[str, Any]] = []
+
+        for segment in self._split_claim_segments(answer):
+            citation_labels = [label for label in self._STRICT_CITATION_PATTERN.findall(segment) if label in source_titles]
+            if not citation_labels:
+                continue
+            claim = self._STRICT_CITATION_PATTERN.sub("", segment)
+            claim = re.sub(r"\s{2,}", " ", claim).strip(" ,.;:\n\t")
+            if not claim:
+                continue
+            deduped_labels = list(dict.fromkeys(citation_labels))
+            evidence_items.append(
+                {
+                    "claim": claim,
+                    "citation_labels": deduped_labels,
+                    "source_titles": [source_titles[label] for label in deduped_labels],
+                }
+            )
+
+        return evidence_items
+
+    def _ensure_claim_level_citations(self, answer: str, sources: list[dict[str, Any]]) -> str:
+        """Ensure each substantive claim segment carries at least one valid citation."""
+        if not sources:
+            return answer.strip()
+
+        fallback_labels = " ".join(
+            f"[{source['citation_label']}]" for source in sources[: min(2, len(sources))]
+        )
+        normalized_segments: list[str] = []
+        available_labels = {source["citation_label"] for source in sources}
+
+        for segment in self._split_claim_segments(answer):
+            cleaned_segment = self._remove_unknown_citations(segment, available_labels)
+            if not cleaned_segment:
+                continue
+            if self._STRICT_CITATION_PATTERN.search(cleaned_segment):
+                normalized_segments.append(cleaned_segment)
+                continue
+            normalized_segments.append(f"{cleaned_segment} {fallback_labels}".strip())
+
+        return "\n\n".join(normalized_segments).strip()
+
     def _ensure_source_citations(self, answer: str, sources: list[dict[str, Any]]) -> str:
         if not sources:
             return answer.strip()
 
         normalized = self._normalize_citation_format(answer).strip()
+        normalized = self._ensure_claim_level_citations(normalized, sources)
         available_labels = [source["citation_label"] for source in sources]
         cited_labels = [label for label in available_labels if f"[{label}]" in normalized]
         if cited_labels:
@@ -109,6 +182,7 @@ class ResearchOrchestrator:
         return self._ensure_source_citations(answer, sources)
 
     def build_report(self, query: str, plan: list[str], sources: list[dict[str, Any]], answer: str) -> str:
+        evidence_map = self.build_evidence_map(answer, sources)
         lines = [
             f"# Research Brief: {query}",
             "",
@@ -143,6 +217,14 @@ class ResearchOrchestrator:
                         "",
                     ]
                 )
+
+        lines.extend(["", "## Evidence Map", ""])
+        if not evidence_map:
+            lines.append("No structured evidence mapping available.")
+        else:
+            for item in evidence_map:
+                labels = ", ".join(f"[{label}]" for label in item["citation_labels"])
+                lines.append(f"- {item['claim']} {labels}".strip())
 
         lines.extend(["## Synthesis", "", answer.strip(), ""])
         return "\n".join(lines).strip() + "\n"

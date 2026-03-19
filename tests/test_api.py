@@ -1051,4 +1051,59 @@ def test_research_orchestrator_appends_fallback_citations_when_missing() -> None
         ],
     )
 
-    assert normalized.endswith("Evidence basis: [S1], [S2].")
+    assert normalized == "The papers consistently show improved graph representation learning. [S1] [S2]"
+
+
+def test_research_orchestrator_removes_unknown_citations() -> None:
+    orchestrator = ResearchOrchestrator()
+
+    normalized = orchestrator._ensure_source_citations(
+        "The evidence favors sparse routing [S9].",
+        [
+            {"citation_label": "S1"},
+            {"citation_label": "S2"},
+        ],
+    )
+
+    assert "[S9]" not in normalized
+    assert "[S1]" in normalized
+
+
+def test_research_orchestrator_enforces_claim_level_citations() -> None:
+    orchestrator = ResearchOrchestrator()
+
+    normalized = orchestrator._ensure_source_citations(
+        "Graph methods improve reasoning. Transformer methods scale well.",
+        [
+            {"citation_label": "S1"},
+            {"citation_label": "S2"},
+        ],
+    )
+
+    assert "Graph methods improve reasoning. [S1] [S2]" in normalized
+    assert "Transformer methods scale well. [S1] [S2]" in normalized
+
+
+def test_research_orchestrator_builds_evidence_map_from_answer() -> None:
+    orchestrator = ResearchOrchestrator()
+
+    evidence_map = orchestrator.build_evidence_map(
+        "Graph methods improve reasoning [S1]. Transformer methods scale well [S2].",
+        [
+            {"citation_label": "S1", "title": "Graph Paper"},
+            {"citation_label": "S2", "title": "Transformer Paper"},
+        ],
+    )
+
+    assert evidence_map == [
+        {
+            "claim": "Graph methods improve reasoning",
+            "citation_labels": ["S1"],
+            "source_titles": ["Graph Paper"],
+        },
+        {
+            "claim": "Transformer methods scale well",
+            "citation_labels": ["S2"],
+            "source_titles": ["Transformer Paper"],
+        },
+    ]

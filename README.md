@@ -8,6 +8,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Built-in Chinese and English UI toggle with persisted locale preference
 - Locale-aware dates, times, and frontend error messages for Chinese and English users
 - Research task workflow with plan, sources, synthesis, and report output
+- Structured evidence map that links answer claims back to cited sources
 - Local TXT / Markdown document upload for grounding research tasks with user-provided notes
 - Research history per session with rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations
@@ -26,9 +27,9 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
 - Frontend tests: `29` passing
-- Backend API tests: `28` passing
+- Backend API tests: `31` passing
 - Retry semantics are intentionally limited to the latest assistant message
-- Research answers now enforce stable inline source markers such as `[S1]`
+- Research answers now enforce stricter inline source markers such as `[S1]`, and responses expose an evidence map derived from those citations
 
 See also:
 - [API reference](docs/api.md)

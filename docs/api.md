@@ -120,6 +120,7 @@ Possible error cases:
   - `report_filename`
   - `plan`
   - `sources`
+  - `evidence_map`
   - `answer`
   - `report_markdown`
 
@@ -205,7 +206,9 @@ Possible error cases:
 
 - Source entries include stable labels such as `S1`, `S2`, and `S3`.
 - Research answers should cite claims inline using `[S1]` style markers.
-- When the model omits citations, the backend appends an `Evidence basis:` fallback line to preserve source traceability.
+- Unknown citations are stripped when they do not map to the current source set.
+- Claim segments without citations are backfilled with fallback source markers so each answer segment remains source-backed.
+- `evidence_map` provides a structured list of claims, citation labels, and source titles for UI rendering.
 
 ## WebSocket
 

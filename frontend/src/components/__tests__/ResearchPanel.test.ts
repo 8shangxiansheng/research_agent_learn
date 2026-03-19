@@ -22,12 +22,14 @@ const mockLocaleStore = {
     'research.loading': 'Loading...',
     'research.historySearch': 'Search research history',
     'research.historyEmpty': 'No research tasks for this session yet.',
+    'research.evidenceEmpty': 'No structured evidence map yet.',
     'research.rerun': 'Rerun',
     'research.rerunNew': 'Rerun New',
     'research.rename': 'Rename',
     'research.delete': 'Delete',
     'research.plan': 'Plan',
     'research.sources': 'Sources',
+    'research.evidence': 'Evidence Map',
     'research.answer': 'Research Answer',
     'research.insertSummary': 'Insert Summary',
     'research.insertFull': 'Insert Full',
@@ -60,6 +62,11 @@ const mockResearchStore = {
       doi?: string
       citation_text?: string
       abstract?: string
+    }>
+    evidence_map: Array<{
+      claim: string
+      citation_labels: string[]
+      source_titles: string[]
     }>
     answer: string
     report_markdown: string
@@ -238,6 +245,13 @@ describe('ResearchPanel', () => {
           abstract: 'A concise abstract.',
         },
       ],
+      evidence_map: [
+        {
+          claim: 'Structured answer',
+          citation_labels: ['S1'],
+          source_titles: ['Paper Title'],
+        },
+      ],
       answer: 'Structured answer',
       report_markdown: '# Report',
     }
@@ -255,6 +269,7 @@ describe('ResearchPanel', () => {
 
     expect(wrapper.text()).toContain('step one')
     expect(wrapper.text()).toContain('Paper Title')
+    expect(wrapper.text()).toContain('Evidence Map')
     expect(wrapper.text()).toContain('Structured answer')
     expect(wrapper.text()).toContain('View Markdown report')
     expect(wrapper.text()).toContain('[S1]')
@@ -293,6 +308,7 @@ describe('ResearchPanel', () => {
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
       sources: [],
+      evidence_map: [],
       answer: 'Structured answer',
       report_markdown: '# Report',
     }
@@ -492,6 +508,7 @@ describe('ResearchPanel', () => {
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
       sources: [],
+      evidence_map: [],
       answer: 'Structured answer',
       report_markdown: '# Report',
     }
@@ -524,6 +541,7 @@ describe('ResearchPanel', () => {
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
       sources: [],
+      evidence_map: [],
       answer: 'Structured answer',
       report_markdown: '# Report',
     }

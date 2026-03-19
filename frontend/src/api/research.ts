@@ -42,6 +42,12 @@ export interface ResearchSource {
   score: number
 }
 
+export interface ResearchEvidenceItem {
+  claim: string
+  citation_labels: string[]
+  source_titles: string[]
+}
+
 export interface ResearchTaskResult {
   id: number
   session_id?: number | null
@@ -51,6 +57,7 @@ export interface ResearchTaskResult {
   report_filename: string
   plan: string[]
   sources: ResearchSource[]
+  evidence_map: ResearchEvidenceItem[]
   answer: string
   report_markdown: string
 }
