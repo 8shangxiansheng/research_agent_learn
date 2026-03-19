@@ -1,5 +1,6 @@
 """Minimal research workflow orchestration."""
 from datetime import UTC, datetime
+import re
 from typing import Any
 
 from app.services.agent import get_agent
@@ -8,6 +9,9 @@ from app.services.tools import search_arxiv_papers
 
 class ResearchOrchestrator:
     """Run a simple plan -> retrieve -> synthesize -> report workflow."""
+
+    _INLINE_CITATION_PATTERN = re.compile(r"\[\s*(S\d+)\s*\]")
+    _BARE_CITATION_PATTERN = re.compile(r"(?<!\[)\b(S\d+)\b(?!\])")
 
     def _build_report_filename(self, query: str) -> str:
         safe = "".join(char.lower() if char.isalnum() else "-" for char in query.strip())
@@ -22,6 +26,26 @@ class ResearchOrchestrator:
             }
             for index, source in enumerate(sources, start=1)
         ]
+
+    def _normalize_citation_format(self, answer: str) -> str:
+        normalized = self._INLINE_CITATION_PATTERN.sub(r"[\1]", answer)
+        return self._BARE_CITATION_PATTERN.sub(r"[\1]", normalized)
+
+    def _ensure_source_citations(self, answer: str, sources: list[dict[str, Any]]) -> str:
+        if not sources:
+            return answer.strip()
+
+        normalized = self._normalize_citation_format(answer).strip()
+        available_labels = [source["citation_label"] for source in sources]
+        cited_labels = [label for label in available_labels if f"[{label}]" in normalized]
+        if cited_labels:
+            return normalized
+
+        fallback_labels = ", ".join(f"[{label}]" for label in available_labels[: min(3, len(available_labels))])
+        return (
+            f"{normalized}\n\n"
+            f"Evidence basis: {fallback_labels}."
+        ).strip()
 
     def build_plan(self, query: str) -> list[str]:
         normalized_query = query.strip()
@@ -60,7 +84,8 @@ class ResearchOrchestrator:
             f"Research question: {query}\n\n"
             f"Sources:\n{formatted_sources}"
         )
-        return await get_agent().ainvoke(prompt)
+        answer = await get_agent().ainvoke(prompt)
+        return self._ensure_source_citations(answer, sources)
 
     def build_report(self, query: str, plan: list[str], sources: list[dict[str, Any]], answer: str) -> str:
         lines = [

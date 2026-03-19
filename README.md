@@ -5,6 +5,8 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 ## Features
 
 - Multi-session chat interface for organizing research conversations
+- Research task workflow with plan, sources, synthesis, and report output
+- Research history per session with share-to-chat and report export
 - Session title search for quickly filtering conversations
 - Session export to Markdown for note taking and sharing
 - Assistant answer retry for regenerating the latest response in place
@@ -17,10 +19,12 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 ## Current Status
 
 - Core chat flow is complete across frontend and backend
+- Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
 - Frontend component tests: `11` passing
 - Backend API tests: `11` passing
 - Retry semantics are intentionally limited to the latest assistant message
+- Research answers now enforce stable inline source markers such as `[S1]`
 
 See also:
 - [API reference](docs/api.md)
@@ -147,6 +151,13 @@ docker-compose down
 | GET | /api/sessions/{id}/export/raw | Download raw Markdown content |
 | POST | /api/sessions/{id}/messages/{message_id}/retry | Regenerate the latest assistant message |
 | POST | /api/messages | Create message |
+| POST | /api/research/tasks | Run a persisted research workflow |
+| GET | /api/sessions/{id}/research-tasks | List research task history for a session |
+| GET | /api/research/tasks/{id} | Get one research task |
+| GET | /api/research/tasks/{id}/report | Export research report as JSON payload |
+| GET | /api/research/tasks/{id}/report/raw | Download raw Markdown report |
+| POST | /api/research/tasks/{id}/share-to-session | Inject research summary or full report into chat |
+| DELETE | /api/research/tasks/{id} | Delete one persisted research task |
 
 ### Key Product Rules
 
@@ -154,6 +165,9 @@ docker-compose down
 - Export keeps message order and role sections in Markdown
 - Retry only applies to the latest assistant message in a session
 - Retry updates the existing assistant message instead of creating a new record
+- Research tasks persist `plan`, `sources`, `answer`, and `report_markdown`
+- Research answers should reference evidence with inline markers like `[S1]`
+- Research reports can be exported as JSON payloads or raw Markdown downloads
 
 ### WebSocket
 

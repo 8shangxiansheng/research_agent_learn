@@ -20,6 +20,7 @@ from starlette.websockets import WebSocketDisconnect
 import app.api as api_module
 from app.database import Base, get_db
 from app.main import app
+from app.services.research.orchestrator import ResearchOrchestrator
 from app.services.tools import _dedupe_and_sort_sources
 
 
@@ -521,6 +522,64 @@ def test_share_research_task_to_session_creates_assistant_message(
     assert full_share_response.json()["content"] == "# Research Brief"
 
 
+def test_export_research_task_report_returns_json_and_raw_markdown(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            return {
+                "query": query,
+                "status": "completed",
+                "generated_at": "2026-03-19T10:00:00Z",
+                "report_filename": "graph-neural-networks.md",
+                "plan": ["Understand the topic"],
+                "sources": [
+                    {
+                        "source_id": "arxiv-1",
+                        "citation_label": "S1",
+                        "title": "Graph Neural Networks",
+                        "authors": ["Author A"],
+                        "abstract": "A paper about graph neural networks.",
+                        "published_at": "2024-01-01T00:00:00Z",
+                        "url": "https://arxiv.org/abs/1234.5678",
+                        "pdf_url": "https://arxiv.org/pdf/1234.5678.pdf",
+                        "source_type": "arxiv",
+                        "score": max_sources,
+                    }
+                ],
+                "answer": "Graph neural networks improve graph representation learning. [S1]",
+                "report_markdown": "# Research Brief: graph neural networks\n\n## Synthesis\n\nGraph neural networks improve graph representation learning. [S1]\n",
+            }
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    session_response = client.post("/api/sessions", json={"title": "Research Session"})
+    session_id = session_response.json()["id"]
+    task_response = client.post(
+        "/api/research/tasks",
+        json={"query": "graph neural networks", "session_id": session_id},
+    )
+    task_id = task_response.json()["id"]
+
+    export_response = client.get(f"/api/research/tasks/{task_id}/report")
+    assert export_response.status_code == 200
+    assert export_response.json()["filename"] == "graph-neural-networks.md"
+    assert "[S1]" in export_response.json()["content"]
+
+    raw_export_response = client.get(f"/api/research/tasks/{task_id}/report/raw")
+    assert raw_export_response.status_code == 200
+    assert raw_export_response.text.startswith("# Research Brief: graph neural networks")
+    assert raw_export_response.headers["content-disposition"] == 'attachment; filename="graph-neural-networks.md"'
+
+
+def test_export_research_task_report_returns_404_for_unknown_task(client: TestClient) -> None:
+    response = client.get("/api/research/tasks/9999/report")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Research task not found"
+
+
 def test_delete_research_task_removes_persisted_record(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -586,3 +645,31 @@ def test_source_dedup_and_sort_prefers_high_score_and_recent_date() -> None:
     assert len(deduped) == 2
     assert deduped[0]["source_id"] == "arxiv-2"
     assert deduped[1]["source_id"] == "arxiv-3"
+
+
+def test_research_orchestrator_normalizes_inline_citations() -> None:
+    orchestrator = ResearchOrchestrator()
+
+    normalized = orchestrator._ensure_source_citations(
+        "The method improves retrieval quality with S1 and [ S2 ].",
+        [
+            {"citation_label": "S1"},
+            {"citation_label": "S2"},
+        ],
+    )
+
+    assert normalized == "The method improves retrieval quality with [S1] and [S2]."
+
+
+def test_research_orchestrator_appends_fallback_citations_when_missing() -> None:
+    orchestrator = ResearchOrchestrator()
+
+    normalized = orchestrator._ensure_source_citations(
+        "The papers consistently show improved graph representation learning.",
+        [
+            {"citation_label": "S1"},
+            {"citation_label": "S2"},
+        ],
+    )
+
+    assert normalized.endswith("Evidence basis: [S1], [S2].")

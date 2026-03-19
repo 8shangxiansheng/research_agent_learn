@@ -58,6 +58,13 @@ def _build_research_message_content(task: object, mode: str = "summary") -> str:
     return "\n".join(lines).strip()
 
 
+def _build_raw_markdown_response(filename: str, content: str) -> PlainTextResponse:
+    """Return markdown text with a download-friendly filename."""
+    response = PlainTextResponse(content=content, media_type="text/markdown; charset=utf-8")
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 # ========== Session Endpoints ==========
 
 @router.get("/sessions", response_model=List[schemas.SessionListResponse])
@@ -186,6 +193,33 @@ def get_research_task(
     if task is None:
         raise HTTPException(status_code=404, detail="Research task not found")
     return _serialize_research_task(task)
+
+
+@router.get(
+    "/research/tasks/{task_id}/report",
+    response_model=schemas.SessionExportResponse,
+)
+def export_research_task_report(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return the persisted research report as a JSON export payload."""
+    task = crud.get_research_task(db, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+    return schemas.SessionExportResponse(filename=task.report_filename, content=task.report_markdown)
+
+
+@router.get("/research/tasks/{task_id}/report/raw")
+def export_research_task_report_raw(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    """Download the persisted research report as raw markdown."""
+    task = crud.get_research_task(db, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+    return _build_raw_markdown_response(task.report_filename, task.report_markdown)
 
 
 @router.post(
