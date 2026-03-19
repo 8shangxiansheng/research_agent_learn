@@ -1,12 +1,12 @@
 <template>
   <div class="chat-interface">
     <div class="chat-header">
-      <h2>{{ chatStore.currentSession?.title || 'Select a session' }}</h2>
+      <h2>{{ chatStore.currentSession?.title || localeStore.t('chat.selectSession') }}</h2>
     </div>
 
     <div v-if="!chatStore.hasCurrentSession" class="no-session">
       <el-icon :size="60"><ChatLineSquare /></el-icon>
-      <p>Select or create a session to start chatting</p>
+      <p>{{ localeStore.t('chat.empty') }}</p>
     </div>
 
     <template v-else>
@@ -38,19 +38,19 @@
           v-model="inputMessage"
           type="textarea"
           :rows="3"
-          placeholder="Ask about academic papers, research topics, or concepts..."
+          :placeholder="localeStore.t('chat.placeholder')"
           :disabled="chatStore.isStreaming"
           @keydown.enter.ctrl="handleSend"
         />
         <div class="input-actions">
-          <span class="hint">Ctrl+Enter to send</span>
+          <span class="hint">{{ localeStore.t('chat.sendHint') }}</span>
           <el-button
             type="primary"
             :loading="chatStore.isStreaming"
             :disabled="!inputMessage.trim()"
             @click="handleSend"
           >
-            {{ chatStore.isStreaming ? 'Thinking...' : 'Send' }}
+            {{ chatStore.isStreaming ? localeStore.t('chat.thinking') : localeStore.t('chat.send') }}
           </el-button>
         </div>
       </div>
@@ -62,9 +62,11 @@
 import { ref, nextTick, watch } from 'vue'
 import { ElScrollbar } from 'element-plus'
 import { useChatStore } from '@/stores/chat'
+import { useLocaleStore } from '@/stores/locale'
 import MessageItem from './MessageItem.vue'
 
 const chatStore = useChatStore()
+const localeStore = useLocaleStore()
 
 const inputMessage = ref('')
 const scrollbarRef = ref<InstanceType<typeof ElScrollbar>>()

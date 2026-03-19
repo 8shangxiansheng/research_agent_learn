@@ -5,6 +5,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 ## Features
 
 - Multi-session chat interface for organizing research conversations
+- Built-in Chinese and English UI toggle with persisted locale preference
 - Research task workflow with plan, sources, synthesis, and report output
 - Research history per session with rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations
@@ -21,7 +22,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend component tests: `23` passing
+- Frontend component tests: `24` passing
 - Backend API tests: `25` passing
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stable inline source markers such as `[S1]`

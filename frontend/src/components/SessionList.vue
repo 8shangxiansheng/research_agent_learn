@@ -1,10 +1,10 @@
 <template>
   <div class="session-list">
     <div class="session-header">
-      <h3>Sessions</h3>
+      <h3>{{ localeStore.t('session.title') }}</h3>
       <el-button type="primary" size="small" @click="handleCreate">
         <el-icon><Plus /></el-icon>
-        New
+        {{ localeStore.t('session.new') }}
       </el-button>
     </div>
 
@@ -12,7 +12,7 @@
       <el-input
         v-model="searchQuery"
         clearable
-        placeholder="Search sessions"
+        :placeholder="localeStore.t('session.searchPlaceholder')"
         @input="handleSearch"
         @clear="handleSearch"
       />
@@ -21,14 +21,14 @@
     <el-scrollbar class="session-scroll">
       <div v-if="chatStore.isLoading" class="loading">
         <el-icon class="is-loading"><Loading /></el-icon>
-        Loading...
+        {{ localeStore.t('session.loading') }}
       </div>
 
       <div v-else-if="chatStore.sessions.length === 0" class="empty">
         <el-icon><ChatLineSquare /></el-icon>
-        <p>{{ searchQuery ? 'No matching sessions' : 'No sessions yet' }}</p>
+        <p>{{ searchQuery ? localeStore.t('session.emptyFiltered') : localeStore.t('session.empty') }}</p>
         <el-button type="primary" size="small" @click="handleCreate">
-          Create First Session
+          {{ localeStore.t('session.createFirst') }}
         </el-button>
       </div>
 
@@ -50,13 +50,13 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="export">
-                  <el-icon><Download /></el-icon> Export Markdown
+                  <el-icon><Download /></el-icon> {{ localeStore.t('session.export') }}
                 </el-dropdown-item>
                 <el-dropdown-item command="rename">
-                  <el-icon><Edit /></el-icon> Rename
+                  <el-icon><Edit /></el-icon> {{ localeStore.t('session.rename') }}
                 </el-dropdown-item>
                 <el-dropdown-item command="delete" divided>
-                  <el-icon><Delete /></el-icon> Delete
+                  <el-icon><Delete /></el-icon> {{ localeStore.t('session.delete') }}
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -71,9 +71,11 @@
 import { onMounted, ref } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useChatStore } from '@/stores/chat'
+import { useLocaleStore } from '@/stores/locale'
 import type { Session } from '@/api/sessions'
 
 const chatStore = useChatStore()
+const localeStore = useLocaleStore()
 const searchQuery = ref(chatStore.sessionSearchQuery)
 
 onMounted(() => {
@@ -82,7 +84,7 @@ onMounted(() => {
 
 function formatDate(date: string): string {
   const d = new Date(date)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(localeStore.dateLocale, { month: 'short', day: 'numeric' })
 }
 
 function handleSearch(): void {
@@ -93,9 +95,9 @@ async function handleCreate(): Promise<void> {
   try {
     const session = await chatStore.createSession()
     chatStore.selectSession(session)
-    ElMessage.success('Session created')
+    ElMessage.success(localeStore.t('session.created'))
   } catch {
-    ElMessage.error('Failed to create session')
+    ElMessage.error(localeStore.t('session.createFailed'))
   }
 }
 
@@ -107,24 +109,24 @@ async function handleCommand(command: string, session: Session): Promise<void> {
   if (command === 'export') {
     try {
       await chatStore.exportCurrentSession(session)
-      ElMessage.success('Session exported')
+      ElMessage.success(localeStore.t('session.exported'))
     } catch {
-      ElMessage.error('Failed to export session')
+      ElMessage.error(localeStore.t('session.exportFailed'))
     }
   } else if (command === 'rename') {
     try {
       const { value } = await ElMessageBox.prompt(
-        'Enter new title',
-        'Rename Session',
+        localeStore.t('session.renamePrompt'),
+        localeStore.t('session.renameTitle'),
         {
           inputValue: session.title,
-          confirmButtonText: 'Rename',
-          cancelButtonText: 'Cancel'
+          confirmButtonText: localeStore.t('session.rename'),
+          cancelButtonText: localeStore.t('common.cancel')
         }
       )
       if (value) {
         await chatStore.updateSessionTitle(session.id, value)
-        ElMessage.success('Session renamed')
+        ElMessage.success(localeStore.t('session.renamed'))
       }
     } catch {
       // Cancelled
@@ -132,16 +134,16 @@ async function handleCommand(command: string, session: Session): Promise<void> {
   } else if (command === 'delete') {
     try {
       await ElMessageBox.confirm(
-        'Delete this session and all its messages?',
-        'Delete Session',
+        localeStore.t('session.deletePrompt'),
+        localeStore.t('session.deleteTitle'),
         {
-          confirmButtonText: 'Delete',
-          cancelButtonText: 'Cancel',
+          confirmButtonText: localeStore.t('session.delete'),
+          cancelButtonText: localeStore.t('common.cancel'),
           type: 'warning'
         }
       )
       await chatStore.deleteSession(session.id)
-      ElMessage.success('Session deleted')
+      ElMessage.success(localeStore.t('session.deleted'))
     } catch {
       // Cancelled
     }

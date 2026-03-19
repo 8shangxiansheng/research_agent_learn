@@ -5,8 +5,8 @@
     </div>
     <div class="message-content">
       <div class="message-header">
-        <span class="message-role">{{ message.role === 'user' ? 'You' : 'Assistant' }}</span>
-        <span v-if="isResearchMessage" class="message-badge">Research</span>
+        <span class="message-role">{{ message.role === 'user' ? localeStore.t('message.you') : localeStore.t('message.assistant') }}</span>
+        <span v-if="isResearchMessage" class="message-badge">{{ localeStore.t('message.research') }}</span>
         <span class="message-time">{{ formatTime(message.created_at) }}</span>
         <el-button
           v-if="message.role === 'assistant' && props.canRetry !== false"
@@ -16,7 +16,7 @@
           @click="$emit('retry', message.id)"
         >
           <el-icon><RefreshRight /></el-icon>
-          Retry
+          {{ localeStore.t('message.retry') }}
         </el-button>
       </div>
       <div
@@ -30,7 +30,7 @@
         class="collapse-toggle"
         @click="isExpanded = !isExpanded"
       >
-        {{ isExpanded ? 'Collapse' : 'Expand' }}
+        {{ isExpanded ? localeStore.t('message.collapse') : localeStore.t('message.expand') }}
       </button>
     </div>
   </div>
@@ -41,6 +41,7 @@ import { computed, ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { ChatDotSquare, User } from '@element-plus/icons-vue'
 import type { Message } from '@/api/sessions'
+import { useLocaleStore } from '@/stores/locale'
 
 const props = withDefaults(defineProps<{
   message: Message
@@ -58,6 +59,7 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true
 })
+const localeStore = useLocaleStore()
 
 const renderedContent = computed(() => {
   return md.render(props.message.content)
@@ -85,7 +87,7 @@ const showCollapseToggle = computed(() => {
 
 function formatTime(date: string): string {
   const d = new Date(date)
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString(localeStore.timeLocale, { hour: '2-digit', minute: '2-digit' })
 }
 </script>
 

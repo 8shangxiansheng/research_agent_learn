@@ -18,8 +18,23 @@ const mockStore = {
   retryAssistantMessage: vi.fn(),
 }
 
+const mockLocaleStore = {
+  t: (key: string) => ({
+    'chat.selectSession': 'Select a session',
+    'chat.empty': 'Select or create a session to start chatting',
+    'chat.placeholder': 'Ask about academic papers, research topics, or concepts...',
+    'chat.sendHint': 'Ctrl+Enter to send',
+    'chat.send': 'Send',
+    'chat.thinking': 'Thinking...',
+  }[key] ?? key),
+}
+
 vi.mock('@/stores/chat', () => ({
   useChatStore: () => mockStore,
+}))
+
+vi.mock('@/stores/locale', () => ({
+  useLocaleStore: () => mockLocaleStore,
 }))
 
 import ChatInterface from '../ChatInterface.vue'

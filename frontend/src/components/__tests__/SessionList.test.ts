@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockStore,
+  mockLocaleStore,
   messageSuccess,
   messageError,
   promptMock,
@@ -21,6 +22,32 @@ const {
     deleteSession: vi.fn(),
     sessionSearchQuery: '',
   },
+  mockLocaleStore: {
+    dateLocale: 'en-US',
+    t: (key: string) => ({
+      'session.title': 'Sessions',
+      'session.new': 'New',
+      'session.searchPlaceholder': 'Search sessions',
+      'session.loading': 'Loading...',
+      'session.empty': 'No sessions yet',
+      'session.emptyFiltered': 'No matching sessions',
+      'session.createFirst': 'Create First Session',
+      'session.export': 'Export Markdown',
+      'session.rename': 'Rename',
+      'session.delete': 'Delete',
+      'session.created': 'Session created',
+      'session.createFailed': 'Failed to create session',
+      'session.exported': 'Session exported',
+      'session.exportFailed': 'Failed to export session',
+      'session.renamed': 'Session renamed',
+      'session.deleted': 'Session deleted',
+      'session.renamePrompt': 'Enter new title',
+      'session.renameTitle': 'Rename Session',
+      'session.deletePrompt': 'Delete this session and all its messages?',
+      'session.deleteTitle': 'Delete Session',
+      'common.cancel': 'Cancel',
+    }[key] ?? key),
+  },
   messageSuccess: vi.fn(),
   messageError: vi.fn(),
   promptMock: vi.fn(),
@@ -29,6 +56,10 @@ const {
 
 vi.mock('@/stores/chat', () => ({
   useChatStore: () => mockStore,
+}))
+
+vi.mock('@/stores/locale', () => ({
+  useLocaleStore: () => mockLocaleStore,
 }))
 
 vi.mock('element-plus', async () => {

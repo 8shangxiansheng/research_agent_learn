@@ -2,8 +2,8 @@
   <section class="research-panel">
     <div class="panel-header">
       <div>
-        <h3>Deep Research</h3>
-        <p>Run a structured literature scan and generate a concise research brief.</p>
+        <h3>{{ localeStore.t('research.title') }}</h3>
+        <p>{{ localeStore.t('research.description') }}</p>
       </div>
       <div class="panel-actions">
         <el-button
@@ -11,14 +11,14 @@
           text
           @click="exportReport"
         >
-          Export Report
+          {{ localeStore.t('research.exportReport') }}
         </el-button>
         <el-button
           v-if="researchStore.currentTask"
           text
           @click="researchStore.clearTask()"
         >
-          Clear
+          {{ localeStore.t('research.clear') }}
         </el-button>
       </div>
     </div>
@@ -26,7 +26,7 @@
     <div class="query-row">
       <el-input
         v-model="query"
-        placeholder="Enter a research topic or question"
+        :placeholder="localeStore.t('research.queryPlaceholder')"
         :disabled="researchStore.isRunning"
         @keydown.enter.prevent="handleRun"
       />
@@ -36,7 +36,7 @@
         :disabled="!query.trim()"
         @click="handleRun"
       >
-        {{ researchStore.isRunning ? 'Researching...' : 'Run Research' }}
+        {{ researchStore.isRunning ? localeStore.t('research.running') : localeStore.t('research.run') }}
       </el-button>
     </div>
 
@@ -44,17 +44,17 @@
 
     <section v-if="chatStore.currentSession" class="history-strip">
       <div class="history-header">
-        <h4>Research History</h4>
-        <span v-if="researchStore.isLoadingHistory">Loading...</span>
+        <h4>{{ localeStore.t('research.history') }}</h4>
+        <span v-if="researchStore.isLoadingHistory">{{ localeStore.t('research.loading') }}</span>
       </div>
       <el-input
         v-model="researchStore.historyQuery"
         class="history-search"
-        placeholder="Search research history"
+        :placeholder="localeStore.t('research.historySearch')"
         clearable
       />
       <div v-if="researchStore.filteredTasks.length === 0" class="history-empty">
-        No research tasks for this session yet.
+        {{ localeStore.t('research.historyEmpty') }}
       </div>
       <div v-else class="history-list">
         <button
@@ -71,25 +71,25 @@
               class="history-rerun"
               @click.stop="rerunTask(task.id)"
             >
-              Rerun
+              {{ localeStore.t('research.rerun') }}
             </span>
             <span
               class="history-rerun-new"
               @click.stop="rerunTaskAsNew(task.id)"
             >
-              Rerun New
+              {{ localeStore.t('research.rerunNew') }}
             </span>
             <span
               class="history-rename"
               @click.stop="renameTask(task.id, task.query)"
             >
-              Rename
+              {{ localeStore.t('research.rename') }}
             </span>
             <span
               class="history-delete"
               @click.stop="removeTask(task.id)"
             >
-              Delete
+              {{ localeStore.t('research.delete') }}
             </span>
           </div>
         </button>
@@ -98,14 +98,14 @@
 
     <div v-if="researchStore.currentTask" class="result-grid">
       <section class="card">
-        <h4>Plan</h4>
+        <h4>{{ localeStore.t('research.plan') }}</h4>
         <ol>
           <li v-for="step in researchStore.currentTask.plan" :key="step">{{ step }}</li>
         </ol>
       </section>
 
       <section class="card">
-        <h4>Sources</h4>
+        <h4>{{ localeStore.t('research.sources') }}</h4>
         <ul class="source-list">
           <li v-for="source in researchStore.currentTask.sources" :key="source.source_id">
             <div class="source-meta">
@@ -133,7 +133,7 @@
               <span v-if="source.journal_ref">{{ source.journal_ref }}</span>
             </div>
             <div class="source-links">
-              <a :href="source.url" target="_blank" rel="noreferrer">Abstract</a>
+              <a :href="source.url" target="_blank" rel="noreferrer">{{ localeStore.t('research.abstract') }}</a>
               <a v-if="source.pdf_url" :href="source.pdf_url" target="_blank" rel="noreferrer">PDF</a>
             </div>
           </li>
@@ -142,7 +142,7 @@
 
       <section class="card report-card">
         <div class="report-header">
-          <h4>Research Brief</h4>
+          <h4>{{ localeStore.t('research.answer') }}</h4>
           <div
             v-if="researchStore.currentTask && chatStore.currentSession"
             class="insert-actions"
@@ -151,19 +151,19 @@
               size="small"
               @click="insertIntoChat('summary')"
             >
-              Insert Summary
+              {{ localeStore.t('research.insertSummary') }}
             </el-button>
             <el-button
               size="small"
               @click="insertIntoChat('full')"
             >
-              Insert Full
+              {{ localeStore.t('research.insertFull') }}
             </el-button>
           </div>
         </div>
         <p class="answer">{{ researchStore.currentTask.answer }}</p>
         <details>
-          <summary>View Markdown report</summary>
+          <summary>{{ localeStore.t('research.viewMarkdown') }}</summary>
           <pre>{{ researchStore.currentTask.report_markdown }}</pre>
         </details>
       </section>
@@ -176,9 +176,11 @@ import { ref, watch } from 'vue'
 
 import { downloadResearchTaskReport } from '@/api/research'
 import { useChatStore } from '@/stores/chat'
+import { useLocaleStore } from '@/stores/locale'
 import { useResearchStore } from '@/stores/research'
 
 const chatStore = useChatStore()
+const localeStore = useLocaleStore()
 const researchStore = useResearchStore()
 const query = ref(researchStore.query)
 
@@ -198,7 +200,7 @@ async function removeTask(taskId: number): Promise<void> {
 }
 
 async function renameTask(taskId: number, currentQuery: string): Promise<void> {
-  const nextQuery = window.prompt('Rename research task', currentQuery)
+  const nextQuery = window.prompt(localeStore.t('research.renamePrompt'), currentQuery)
   if (nextQuery === null) {
     return
   }

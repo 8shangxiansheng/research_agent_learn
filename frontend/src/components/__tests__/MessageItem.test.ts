@@ -1,5 +1,21 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+const mockLocaleStore = {
+  timeLocale: 'en-US',
+  t: (key: string) => ({
+    'message.you': 'You',
+    'message.assistant': 'Assistant',
+    'message.research': 'Research',
+    'message.retry': 'Retry',
+    'message.expand': 'Expand',
+    'message.collapse': 'Collapse',
+  }[key] ?? key),
+}
+
+vi.mock('@/stores/locale', () => ({
+  useLocaleStore: () => mockLocaleStore,
+}))
 
 import MessageItem from '../MessageItem.vue'
 

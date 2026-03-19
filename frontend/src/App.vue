@@ -2,8 +2,17 @@
   <el-container class="app-container">
     <el-header class="app-header">
       <div class="header-content">
-        <h1>Academic Q&A Agent</h1>
-        <span class="subtitle">AI-powered academic paper research assistant</span>
+        <div>
+          <h1>{{ localeStore.t('app.title') }}</h1>
+          <span class="subtitle">{{ localeStore.t('app.subtitle') }}</span>
+        </div>
+        <button
+          type="button"
+          class="locale-toggle"
+          @click="localeStore.toggleLocale()"
+        >
+          {{ localeStore.t('app.language') }} · {{ localeStore.nextLocaleLabel }}
+        </button>
       </div>
     </el-header>
     <el-main class="app-main">
@@ -14,6 +23,9 @@
 
 <script setup lang="ts">
 import Home from './views/Home.vue'
+import { useLocaleStore } from '@/stores/locale'
+
+const localeStore = useLocaleStore()
 </script>
 
 <style>
@@ -41,6 +53,14 @@ html, body, #app {
   height: 60px !important;
 }
 
+.header-content {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
 .header-content h1 {
   font-size: 24px;
   font-weight: 600;
@@ -51,6 +71,21 @@ html, body, #app {
   font-size: 12px;
   opacity: 0.8;
   margin-left: 15px;
+}
+
+.locale-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: white;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.locale-toggle:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .app-main {

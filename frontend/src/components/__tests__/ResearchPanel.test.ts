@@ -4,6 +4,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const downloadResearchTaskReportMock = vi.fn()
 
+const mockLocaleStore = {
+  t: (key: string) => ({
+    'research.title': 'Deep Research',
+    'research.description': 'Run a structured literature scan and generate a concise research brief.',
+    'research.exportReport': 'Export Report',
+    'research.clear': 'Clear',
+    'research.queryPlaceholder': 'Enter a research topic or question',
+    'research.run': 'Run Research',
+    'research.running': 'Researching...',
+    'research.history': 'Research History',
+    'research.loading': 'Loading...',
+    'research.historySearch': 'Search research history',
+    'research.historyEmpty': 'No research tasks for this session yet.',
+    'research.rerun': 'Rerun',
+    'research.rerunNew': 'Rerun New',
+    'research.rename': 'Rename',
+    'research.delete': 'Delete',
+    'research.plan': 'Plan',
+    'research.sources': 'Sources',
+    'research.answer': 'Research Answer',
+    'research.insertSummary': 'Insert Summary',
+    'research.insertFull': 'Insert Full',
+    'research.viewMarkdown': 'View Markdown report',
+    'research.abstract': 'Abstract',
+    'research.renamePrompt': 'Rename research task',
+  }[key] ?? key),
+}
+
 const mockResearchStore = {
   currentTask: null as null | {
     id: number
@@ -57,6 +85,10 @@ const mockResearchStore = {
 
 vi.mock('@/stores/research', () => ({
   useResearchStore: () => mockResearchStore,
+}))
+
+vi.mock('@/stores/locale', () => ({
+  useLocaleStore: () => mockLocaleStore,
 }))
 
 const mockChatStore = {
