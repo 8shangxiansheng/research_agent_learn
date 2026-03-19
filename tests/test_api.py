@@ -606,6 +606,33 @@ def test_research_task_rejects_unknown_session(
     assert response.json()["detail"] == "Session not found"
 
 
+def test_research_task_returns_structured_failure_detail(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            raise RuntimeError("upstream timeout")
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    response = client.post(
+        "/api/research/tasks",
+        json={"query": "transformer interpretability"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == {
+        "code": "research_execution_failed",
+        "message": "Research task execution failed",
+        "reason": "RuntimeError",
+        "recovery_hint": "retry_or_adjust_query",
+        "retryable": True,
+        "operation": "run",
+        "query": "transformer interpretability",
+    }
+
+
 def test_update_research_task_renames_query_and_report_filename(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

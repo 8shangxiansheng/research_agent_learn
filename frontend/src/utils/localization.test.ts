@@ -5,6 +5,7 @@ import {
   formatMessageTime,
   formatSessionDate,
   formatSourceDate,
+  resolveLocalizedApiError,
   resolveLocalizedErrorMessage,
 } from './localization'
 
@@ -16,6 +17,8 @@ const enLocale = {
     'chat.error.fetchSessions': 'Failed to fetch sessions',
     'api.error.sessionNotFound': 'Session not found',
     'api.error.retryFailed': 'Retry failed',
+    'api.error.researchExecutionFailed': 'Research task failed before completion',
+    'api.hint.researchRetryOrAdjustQuery': 'Retry the task, or narrow the query and try again.',
   }[key] ?? key),
 }
 
@@ -27,6 +30,8 @@ const zhLocale = {
     'chat.error.fetchSessions': '获取会话失败',
     'api.error.sessionNotFound': '会话不存在',
     'api.error.retryFailed': '重试失败',
+    'api.error.researchExecutionFailed': '研究任务未能完成',
+    'api.hint.researchRetryOrAdjustQuery': '请重试该任务，或缩小问题范围后再试。',
   }[key] ?? key),
 }
 
@@ -68,5 +73,33 @@ describe('localization utils', () => {
     expect(resolveLocalizedErrorMessage(sessionNotFoundError, zhLocale, 'chat.error.fetchSessions')).toBe('会话不存在')
     expect(resolveLocalizedErrorMessage(retryFailedError, zhLocale, 'chat.error.fetchSessions')).toBe('重试失败')
     expect(resolveLocalizedErrorMessage(new Error('boom'), zhLocale, 'chat.error.fetchSessions')).toBe('获取会话失败')
+  })
+
+  it('resolves structured backend error detail for recovery flows', () => {
+    const structuredError = {
+      isAxiosError: true,
+      response: {
+        data: {
+          detail: {
+            code: 'research_execution_failed',
+            reason: 'RuntimeError',
+            recovery_hint: 'retry_or_adjust_query',
+            retryable: true,
+            operation: 'run',
+            query: 'transformer interpretability',
+          },
+        },
+      },
+    }
+
+    expect(resolveLocalizedApiError(structuredError, zhLocale, 'chat.error.fetchSessions')).toEqual({
+      code: 'research_execution_failed',
+      message: '研究任务未能完成',
+      reason: 'RuntimeError',
+      recoveryHint: '请重试该任务，或缩小问题范围后再试。',
+      retryable: true,
+      operation: 'run',
+      query: 'transformer interpretability',
+    })
   })
 })

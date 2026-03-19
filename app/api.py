@@ -4,7 +4,7 @@ Provides REST routes for sessions, research tasks, messages, and WebSocket strea
 """
 import re
 import json
-from typing import List
+from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
@@ -98,6 +98,54 @@ def _slugify_report_filename(query: str) -> str:
     """Generate a stable report filename from a research query."""
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", query.strip().lower()).strip("-")
     return f"research-brief-{slug or 'summary'}.md"
+
+
+def _build_research_failure_detail(
+    *,
+    operation: str,
+    query: str,
+    exc: Exception,
+) -> dict[str, Any]:
+    """Build a safe, structured research execution failure payload."""
+    return {
+        "code": "research_execution_failed",
+        "message": "Research task execution failed",
+        "reason": type(exc).__name__,
+        "recovery_hint": "retry_or_adjust_query",
+        "retryable": True,
+        "operation": operation,
+        "query": query,
+    }
+
+
+async def _run_research_or_raise(
+    *,
+    operation: str,
+    orchestrator: object,
+    query: str,
+    max_sources: int,
+    document: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Run research and normalize unexpected failures into API-safe errors."""
+    try:
+        if document is None:
+            return await orchestrator.run(query=query, max_sources=max_sources)
+        return await orchestrator.run(
+            query=query,
+            max_sources=max_sources,
+            document=document,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=_build_research_failure_detail(
+                operation=operation,
+                query=query,
+                exc=exc,
+            ),
+        ) from exc
 
 
 # ========== Session Endpoints ==========
@@ -202,14 +250,13 @@ async def run_research_task(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     orchestrator = get_research_orchestrator()
-    if document is None:
-        result = await orchestrator.run(query=query, max_sources=max_sources)
-    else:
-        result = await orchestrator.run(
-            query=query,
-            max_sources=max_sources,
-            document=document,
-        )
+    result = await _run_research_or_raise(
+        operation="run",
+        orchestrator=orchestrator,
+        query=query,
+        max_sources=max_sources,
+        document=document,
+    )
     db_task = crud.create_research_task(
         db,
         session_id=task.session_id,
@@ -290,14 +337,13 @@ async def rerun_research_task(
     max_sources = max(1, min(len(json.loads(task.sources_json)) or 3, 5))
     orchestrator = get_research_orchestrator()
     document = _extract_document_from_task(task)
-    if document is None:
-        result = await orchestrator.run(query=task.query, max_sources=max_sources)
-    else:
-        result = await orchestrator.run(
-            query=task.query,
-            max_sources=max_sources,
-            document=document,
-        )
+    result = await _run_research_or_raise(
+        operation="rerun",
+        orchestrator=orchestrator,
+        query=task.query,
+        max_sources=max_sources,
+        document=document,
+    )
     updated_task = crud.refresh_research_task(
         db,
         task_id,
@@ -325,14 +371,13 @@ async def rerun_research_task_as_new(
     max_sources = max(1, min(len(json.loads(task.sources_json)) or 3, 5))
     orchestrator = get_research_orchestrator()
     document = _extract_document_from_task(task)
-    if document is None:
-        result = await orchestrator.run(query=task.query, max_sources=max_sources)
-    else:
-        result = await orchestrator.run(
-            query=task.query,
-            max_sources=max_sources,
-            document=document,
-        )
+    result = await _run_research_or_raise(
+        operation="rerun_as_new",
+        orchestrator=orchestrator,
+        query=task.query,
+        max_sources=max_sources,
+        document=document,
+    )
     new_task = crud.create_research_task(
         db,
         session_id=task.session_id,

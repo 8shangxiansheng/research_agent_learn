@@ -99,6 +99,45 @@
 
     <p v-if="researchStore.error" class="error-text">{{ researchStore.error }}</p>
 
+    <section
+      v-if="researchStore.lastFailure"
+      class="failure-card"
+      data-test="research-failure-card"
+    >
+      <div class="failure-copy">
+        <strong>{{ localeStore.t('research.failure.title') }}</strong>
+        <p>{{ researchStore.lastFailure.message }}</p>
+        <p v-if="researchStore.lastFailure.query" class="failure-meta">
+          {{ localeStore.t('research.failure.query') }}：{{ researchStore.lastFailure.query }}
+        </p>
+        <p v-if="researchStore.lastFailure.reason" class="failure-meta">
+          {{ localeStore.t('research.failure.reason') }}：{{ researchStore.lastFailure.reason }}
+        </p>
+        <p v-if="researchStore.lastFailure.recoveryHint" class="failure-hint">
+          {{ researchStore.lastFailure.recoveryHint }}
+        </p>
+      </div>
+      <div class="failure-actions">
+        <el-button
+          v-if="researchStore.lastFailure.retryable"
+          size="small"
+          type="primary"
+          data-test="retry-last-failure"
+          @click="retryLastFailure"
+        >
+          {{ localeStore.t('research.failure.retry') }}
+        </el-button>
+        <el-button
+          size="small"
+          text
+          data-test="dismiss-failure"
+          @click="researchStore.clearFailure()"
+        >
+          {{ localeStore.t('research.failure.dismiss') }}
+        </el-button>
+      </div>
+    </section>
+
     <section v-if="chatStore.currentSession" class="history-strip">
       <div class="history-header">
         <h4>{{ localeStore.t('research.history') }}</h4>
@@ -388,6 +427,10 @@ async function rerunTaskAsNew(taskId: number): Promise<void> {
   await researchStore.rerunTaskAsNew(taskId)
 }
 
+async function retryLastFailure(): Promise<void> {
+  await researchStore.retryLastFailure(chatStore.currentSession?.id)
+}
+
 async function exportReport(): Promise<void> {
   if (!researchStore.currentTask) {
     return
@@ -615,6 +658,47 @@ watch(
 .error-text {
   color: #d14343;
   font-size: 13px;
+}
+
+.failure-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  background: #fff1f2;
+}
+
+.failure-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.failure-copy strong {
+  font-size: 14px;
+  color: #991b1b;
+}
+
+.failure-copy p {
+  margin: 0;
+  font-size: 13px;
+  color: #7f1d1d;
+}
+
+.failure-meta {
+  color: #9f1239;
+}
+
+.failure-hint {
+  font-weight: 600;
+}
+
+.failure-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .history-strip {
@@ -958,6 +1042,10 @@ pre {
 
   .phase-list {
     grid-template-columns: 1fr;
+  }
+
+  .failure-card {
+    flex-direction: column;
   }
 }
 </style>

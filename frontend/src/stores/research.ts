@@ -4,11 +4,23 @@ import { computed, ref } from 'vue'
 import type { ResearchDocumentPayload, ResearchPhaseStatus, ResearchTaskResult } from '@/api/research'
 import { deleteResearchTask, getSessionResearchTasks, rerunResearchTask, rerunResearchTaskAsNew, runResearchTask, updateResearchTask } from '@/api/research'
 import { useLocaleStore } from '@/stores/locale'
-import { resolveLocalizedErrorMessage } from '@/utils/localization'
+import { resolveLocalizedApiError, resolveLocalizedErrorMessage } from '@/utils/localization'
 
 const DEFAULT_PHASE_SEQUENCE: ResearchPhaseStatus['phase'][] = ['planning', 'retrieving', 'synthesizing', 'completed']
 type ResearchHistorySort = 'newest' | 'oldest' | 'title'
 type ResearchHistorySourceFilter = 'all' | 'arxiv' | 'crossref' | 'local'
+type ResearchFailureOperation = 'run' | 'rerun' | 'rerun_as_new'
+
+export type ResearchFailureState = {
+  operation: ResearchFailureOperation
+  taskId?: number
+  query: string
+  message: string
+  reason?: string
+  recoveryHint?: string
+  retryable: boolean
+  document?: ResearchDocumentPayload
+}
 
 export const useResearchStore = defineStore('research', () => {
   const localeStore = useLocaleStore()
@@ -23,6 +35,7 @@ export const useResearchStore = defineStore('research', () => {
   const isLoadingHistory = ref(false)
   const error = ref<string | null>(null)
   const phaseStatuses = ref<ResearchPhaseStatus[]>([])
+  const lastFailure = ref<ResearchFailureState | null>(null)
   let phaseTimer: ReturnType<typeof setTimeout> | null = null
 
   const selectedCount = computed(() => selectedTaskIds.value.length)
@@ -127,6 +140,31 @@ export const useResearchStore = defineStore('research', () => {
     }))
   }
 
+  function clearFailure(): void {
+    lastFailure.value = null
+  }
+
+  function buildFailureState(
+    operation: ResearchFailureOperation,
+    taskQuery: string,
+    resolvedError: ReturnType<typeof resolveLocalizedApiError>,
+    options?: {
+      taskId?: number
+      document?: ResearchDocumentPayload
+    },
+  ): ResearchFailureState {
+    return {
+      operation,
+      taskId: options?.taskId,
+      query: resolvedError.query ?? taskQuery,
+      message: resolvedError.message,
+      reason: resolvedError.reason,
+      recoveryHint: resolvedError.recoveryHint,
+      retryable: resolvedError.retryable,
+      document: options?.document,
+    }
+  }
+
   async function runTask(
     taskQuery = query.value,
     sessionId?: number,
@@ -141,6 +179,7 @@ export const useResearchStore = defineStore('research', () => {
     try {
       isRunning.value = true
       error.value = null
+      clearFailure()
       startPhaseTracking()
       query.value = normalizedQuery
       currentTask.value = await runResearchTask({
@@ -154,7 +193,9 @@ export const useResearchStore = defineStore('research', () => {
       }
     } catch (e) {
       clearPhaseTimer()
-      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.run')
+      const resolvedError = resolveLocalizedApiError(e, localeStore, 'research.error.run')
+      error.value = resolvedError.message
+      lastFailure.value = buildFailureState('run', normalizedQuery, resolvedError, { document })
       console.error(e)
       throw e
     } finally {
@@ -173,6 +214,7 @@ export const useResearchStore = defineStore('research', () => {
     try {
       isLoadingHistory.value = true
       error.value = null
+      clearFailure()
       tasks.value = await getSessionResearchTasks(sessionId)
       currentTask.value = tasks.value[0] ?? null
       selectedTaskIds.value = []
@@ -213,6 +255,7 @@ export const useResearchStore = defineStore('research', () => {
   async function removeTask(taskId: number): Promise<void> {
     try {
       error.value = null
+      clearFailure()
       await deleteResearchTask(taskId)
       tasks.value = tasks.value.filter(task => task.id !== taskId)
       selectedTaskIds.value = selectedTaskIds.value.filter(id => id !== taskId)
@@ -233,6 +276,7 @@ export const useResearchStore = defineStore('research', () => {
 
     try {
       error.value = null
+      clearFailure()
       const idsToDelete = [...selectedTaskIds.value]
       await Promise.all(idsToDelete.map(taskId => deleteResearchTask(taskId)))
       tasks.value = tasks.value.filter(task => !idsToDelete.includes(task.id))
@@ -256,6 +300,7 @@ export const useResearchStore = defineStore('research', () => {
 
     try {
       error.value = null
+      clearFailure()
       const updatedTask = await updateResearchTask(taskId, { query: normalizedQuery })
       tasks.value = tasks.value.map(task => task.id === taskId ? updatedTask : task)
       if (currentTask.value?.id === taskId) {
@@ -269,9 +314,11 @@ export const useResearchStore = defineStore('research', () => {
   }
 
   async function rerunTask(taskId: number): Promise<void> {
+    const originalTask = tasks.value.find(task => task.id === taskId) ?? currentTask.value
     try {
       isRunning.value = true
       error.value = null
+      clearFailure()
       startPhaseTracking()
       const updatedTask = await rerunResearchTask(taskId)
       tasks.value = tasks.value.map(task => task.id === taskId ? updatedTask : task)
@@ -279,7 +326,14 @@ export const useResearchStore = defineStore('research', () => {
       finishPhaseTracking(updatedTask.phase_statuses)
     } catch (e) {
       clearPhaseTimer()
-      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.rerun')
+      const resolvedError = resolveLocalizedApiError(e, localeStore, 'research.error.rerun')
+      error.value = resolvedError.message
+      lastFailure.value = buildFailureState(
+        'rerun',
+        originalTask?.query ?? query.value,
+        resolvedError,
+        { taskId },
+      )
       console.error(e)
       throw e
     } finally {
@@ -288,9 +342,11 @@ export const useResearchStore = defineStore('research', () => {
   }
 
   async function rerunTaskAsNew(taskId: number): Promise<void> {
+    const originalTask = tasks.value.find(task => task.id === taskId) ?? currentTask.value
     try {
       isRunning.value = true
       error.value = null
+      clearFailure()
       startPhaseTracking()
       const createdTask = await rerunResearchTaskAsNew(taskId)
       tasks.value = [createdTask, ...tasks.value.filter(task => task.id !== createdTask.id)]
@@ -298,7 +354,14 @@ export const useResearchStore = defineStore('research', () => {
       finishPhaseTracking(createdTask.phase_statuses)
     } catch (e) {
       clearPhaseTimer()
-      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.rerunNew')
+      const resolvedError = resolveLocalizedApiError(e, localeStore, 'research.error.rerunNew')
+      error.value = resolvedError.message
+      lastFailure.value = buildFailureState(
+        'rerun_as_new',
+        originalTask?.query ?? query.value,
+        resolvedError,
+        { taskId },
+      )
       console.error(e)
       throw e
     } finally {
@@ -306,11 +369,34 @@ export const useResearchStore = defineStore('research', () => {
     }
   }
 
+  async function retryLastFailure(sessionId?: number): Promise<void> {
+    if (!lastFailure.value || !lastFailure.value.retryable) {
+      return
+    }
+
+    if (lastFailure.value.operation === 'run') {
+      await runTask(lastFailure.value.query, sessionId, lastFailure.value.document)
+      return
+    }
+
+    if (!lastFailure.value.taskId) {
+      return
+    }
+
+    if (lastFailure.value.operation === 'rerun') {
+      await rerunTask(lastFailure.value.taskId)
+      return
+    }
+
+    await rerunTaskAsNew(lastFailure.value.taskId)
+  }
+
   function clearTask(): void {
     currentTask.value = null
     phaseStatuses.value = []
     clearPhaseTimer()
     error.value = null
+    clearFailure()
   }
 
   return {
@@ -328,6 +414,7 @@ export const useResearchStore = defineStore('research', () => {
     isRunning,
     isLoadingHistory,
     error,
+    lastFailure,
     phaseStatuses,
     visiblePhaseStatuses,
     runTask,
@@ -340,8 +427,10 @@ export const useResearchStore = defineStore('research', () => {
     renameTask,
     rerunTask,
     rerunTaskAsNew,
+    retryLastFailure,
     removeTask,
     bulkRemoveSelectedTasks,
+    clearFailure,
     clearTask,
   }
 })

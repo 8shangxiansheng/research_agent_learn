@@ -10,6 +10,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Research task workflow with plan, sources, synthesis, and enhanced report export
 - Structured evidence map that links answer claims back to cited sources
 - Research phase progress display for planning, retrieval, synthesis, and completion
+- Structured research failure diagnostics with localized recovery hints and one-click retry for the last failed action
 - Local TXT / Markdown document upload for grounding research tasks with user-provided notes
 - Mixed-source research retrieval with arXiv papers plus Crossref metadata enrichment
 - Research history per session with search, source filtering, sorting, selection, bulk delete, rerun-in-place, rerun-as-new, rename, share-to-chat, continue-in-chat context, and report export
@@ -28,14 +29,15 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend unit tests: `34` passing
+- Frontend unit tests: `37` passing
 - Frontend E2E tests: `2` passing
-- Backend Python tests: `37` passing
+- Backend Python tests: `38` passing
 - Playwright browser flow is now part of the repository and CI pipeline
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stricter inline source markers such as `[S1]`, and responses expose an evidence map derived from those citations
 - Exported research reports now include a snapshot section, key takeaways, source catalogue, and full synthesis in one Markdown brief
 - Research source catalogues now mix arXiv papers with Crossref metadata records when capacity allows
+- Research execution failures now return structured diagnostics to the frontend, including a retryable flag, failure type, and localized recovery guidance
 
 See also:
 - [API reference](docs/api.md)

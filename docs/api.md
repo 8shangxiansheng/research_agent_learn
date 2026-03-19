@@ -134,6 +134,19 @@ Constraints:
 - `max_sources` is clamped to `1..5`.
 - `session_id`, when provided, must exist.
 - Unsupported or unreadable document payloads return `400`.
+- Unexpected research execution failures return `500` with a structured `detail` payload:
+
+```json
+{
+  "code": "research_execution_failed",
+  "message": "Research task execution failed",
+  "reason": "RuntimeError",
+  "recovery_hint": "retry_or_adjust_query",
+  "retryable": true,
+  "operation": "run",
+  "query": "graph neural networks for molecules"
+}
+```
 
 `GET /api/sessions/{session_id}/research-tasks`
 
@@ -160,11 +173,13 @@ Example:
 
 - Re-executes one persisted research task using its current query.
 - Refreshes the stored `plan`, `sources`, `answer`, and `report_markdown` in place.
+- Uses the same structured `500` failure detail shape as `POST /api/research/tasks`, with `operation` set to `rerun`.
 
 `POST /api/research/tasks/{task_id}/rerun-as-new`
 
 - Re-executes one persisted research task using its current query.
 - Stores the result as a new research history item, keeping the original task unchanged.
+- Uses the same structured `500` failure detail shape as `POST /api/research/tasks`, with `operation` set to `rerun_as_new`.
 
 `GET /api/research/tasks/{task_id}/report`
 

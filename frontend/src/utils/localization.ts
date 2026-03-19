@@ -11,6 +11,26 @@ type LocaleContext = {
   t: Translator
 }
 
+type StructuredBackendDetail = {
+  code?: string
+  message?: string
+  reason?: string
+  recovery_hint?: string
+  retryable?: boolean
+  operation?: string
+  query?: string
+}
+
+export type LocalizedApiErrorDetail = {
+  code?: string
+  message: string
+  reason?: string
+  recoveryHint?: string
+  retryable: boolean
+  operation?: string
+  query?: string
+}
+
 const backendErrorKeyMap: Record<string, string> = {
   'Session not found': 'api.error.sessionNotFound',
   'Research task not found': 'api.error.researchTaskNotFound',
@@ -27,6 +47,14 @@ const backendErrorKeyMap: Record<string, string> = {
   'Uploaded text document must be UTF-8 encoded': 'api.error.documentEncoding',
   'Uploaded document does not contain readable text': 'api.error.documentUnreadable',
   'PDF parsing is unavailable because pypdf is not installed': 'api.error.documentPdfUnavailable',
+}
+
+const backendErrorCodeKeyMap: Record<string, string> = {
+  research_execution_failed: 'api.error.researchExecutionFailed',
+}
+
+const backendRecoveryHintKeyMap: Record<string, string> = {
+  retry_or_adjust_query: 'api.hint.researchRetryOrAdjustQuery',
 }
 
 export function formatSessionDate(date: string, locale: LocaleContext): string {
@@ -63,21 +91,58 @@ export function resolveLocalizedErrorMessage(
   locale: LocaleContext,
   fallbackKey: string,
 ): string {
+  return resolveLocalizedApiError(error, locale, fallbackKey).message
+}
+
+export function resolveLocalizedApiError(
+  error: unknown,
+  locale: LocaleContext,
+  fallbackKey: string,
+): LocalizedApiErrorDetail {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail
     if (typeof detail === 'string') {
       const mappedKey = backendErrorKeyMap[detail]
       if (mappedKey) {
-        return locale.t(mappedKey)
+        return {
+          message: locale.t(mappedKey),
+          retryable: false,
+        }
       }
 
       if (detail.startsWith('Retry failed:')) {
-        return locale.t('api.error.retryFailed')
+        return {
+          message: locale.t('api.error.retryFailed'),
+          retryable: false,
+        }
       }
 
-      return detail
+      return {
+        message: detail,
+        retryable: false,
+      }
+    }
+
+    if (detail && typeof detail === 'object') {
+      const structured = detail as StructuredBackendDetail
+      const mappedKey = structured.code ? backendErrorCodeKeyMap[structured.code] : undefined
+      const recoveryHintKey = structured.recovery_hint
+        ? backendRecoveryHintKeyMap[structured.recovery_hint]
+        : undefined
+      return {
+        code: structured.code,
+        message: mappedKey ? locale.t(mappedKey) : structured.message ?? locale.t(fallbackKey),
+        reason: structured.reason,
+        recoveryHint: recoveryHintKey ? locale.t(recoveryHintKey) : undefined,
+        retryable: structured.retryable ?? false,
+        operation: structured.operation,
+        query: structured.query,
+      }
     }
   }
 
-  return locale.t(fallbackKey)
+  return {
+    message: locale.t(fallbackKey),
+    retryable: false,
+  }
 }

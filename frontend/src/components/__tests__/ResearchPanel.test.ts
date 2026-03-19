@@ -60,6 +60,11 @@ const mockLocaleStore = {
     'research.abstract': 'Abstract',
     'research.renamePrompt': 'Rename research task',
     'research.error.readDocument': 'Failed to read local document',
+    'research.failure.title': 'Research task needs attention',
+    'research.failure.query': 'Query',
+    'research.failure.reason': 'Failure type',
+    'research.failure.retry': 'Retry last failed action',
+    'research.failure.dismiss': 'Dismiss',
   }[key] ?? key),
 }
 
@@ -129,6 +134,15 @@ const mockResearchStore = {
     detail: string
   }>,
   error: null as string | null,
+  lastFailure: null as null | {
+    operation: 'run' | 'rerun' | 'rerun_as_new'
+    taskId?: number
+    query: string
+    message: string
+    reason?: string
+    recoveryHint?: string
+    retryable: boolean
+  },
   runTask: vi.fn(),
   fetchTasks: vi.fn(),
   selectTask: vi.fn(),
@@ -157,8 +171,12 @@ const mockResearchStore = {
   renameTask: vi.fn(),
   rerunTask: vi.fn(),
   rerunTaskAsNew: vi.fn(),
+  retryLastFailure: vi.fn(),
   removeTask: vi.fn(),
   bulkRemoveSelectedTasks: vi.fn(),
+  clearFailure: vi.fn(() => {
+    mockResearchStore.lastFailure = null
+  }),
   clearTask: vi.fn(),
 }
 
@@ -203,6 +221,7 @@ describe('ResearchPanel', () => {
     mockResearchStore.isLoadingHistory = false
     mockResearchStore.visiblePhaseStatuses = []
     mockResearchStore.error = null
+    mockResearchStore.lastFailure = null
     mockChatStore.currentSession = null
     mockChatStore.appendResearchTask.mockReset()
     mockChatStore.setResearchContext.mockReset()
@@ -216,8 +235,10 @@ describe('ResearchPanel', () => {
     mockResearchStore.renameTask.mockReset()
     mockResearchStore.rerunTask.mockReset()
     mockResearchStore.rerunTaskAsNew.mockReset()
+    mockResearchStore.retryLastFailure.mockReset()
     mockResearchStore.removeTask.mockReset()
     mockResearchStore.bulkRemoveSelectedTasks.mockReset()
+    mockResearchStore.clearFailure.mockClear()
     mockResearchStore.clearTask.mockReset()
     downloadResearchTaskReportMock.mockReset()
   })
@@ -247,6 +268,62 @@ describe('ResearchPanel', () => {
     await nextTick()
 
     expect(mockResearchStore.runTask).toHaveBeenCalledWith('  graph neural networks  ', 7, undefined)
+  })
+
+  it('renders recovery details for the last failed research action', () => {
+    mockResearchStore.lastFailure = {
+      operation: 'run',
+      query: 'transformer interpretability',
+      message: 'Research task failed before completion',
+      reason: 'RuntimeError',
+      recoveryHint: 'Retry the task, or narrow the query and try again.',
+      retryable: true,
+    }
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': true,
+          'el-button': {
+            props: ['disabled', 'loading', 'text'],
+            emits: ['click'],
+            template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-test="research-failure-card"]').text()).toContain('Research task needs attention')
+    expect(wrapper.text()).toContain('transformer interpretability')
+    expect(wrapper.text()).toContain('RuntimeError')
+    expect(wrapper.text()).toContain('Retry the task, or narrow the query and try again.')
+  })
+
+  it('retries the last failed action with the active session id', async () => {
+    mockChatStore.currentSession = { id: 8, title: 'Recovery Session' }
+    mockResearchStore.lastFailure = {
+      operation: 'run',
+      query: 'retry query',
+      message: 'Research task failed before completion',
+      retryable: true,
+    }
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': true,
+          'el-button': {
+            props: ['disabled', 'loading', 'text'],
+            emits: ['click'],
+            template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('[data-test="retry-last-failure"]').trigger('click')
+
+    expect(mockResearchStore.retryLastFailure).toHaveBeenCalledWith(8)
   })
 
   it('passes an attached local document into the research task', async () => {
