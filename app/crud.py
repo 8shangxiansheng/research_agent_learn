@@ -255,6 +255,25 @@ def get_research_tasks_by_session(db: Session, session_id: int) -> List[Research
     )
 
 
+def update_research_task(
+    db: Session,
+    task_id: int,
+    *,
+    query: str,
+    report_filename: str,
+) -> Optional[ResearchTask]:
+    """Rename a persisted research task and keep its export filename aligned."""
+    task = get_research_task(db, task_id)
+    if task is None:
+        return None
+
+    task.query = query
+    task.report_filename = report_filename
+    db.commit()
+    db.refresh(task)
+    return task
+
+
 def delete_research_task(db: Session, task_id: int) -> bool:
     """Delete a persisted research task."""
     task = get_research_task(db, task_id)

@@ -125,6 +125,19 @@ Constraints:
 
 - Returns one persisted research task.
 
+`PUT /api/research/tasks/{task_id}`
+
+- Renames one persisted research task by updating its `query`.
+- Keeps `report_filename` aligned with the new task name.
+
+Example:
+
+```json
+{
+  "query": "molecular graph learning"
+}
+```
+
 `GET /api/research/tasks/{task_id}/report`
 
 - Returns a JSON payload:

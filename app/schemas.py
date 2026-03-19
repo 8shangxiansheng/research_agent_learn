@@ -80,6 +80,11 @@ class ResearchTaskCreate(BaseModel):
     session_id: Optional[int] = None
 
 
+class ResearchTaskUpdate(BaseModel):
+    """Schema for renaming an existing research task."""
+    query: str
+
+
 class ResearchShareRequest(BaseModel):
     """Schema for injecting research results back into a chat session."""
     mode: Literal["summary", "full"] = "summary"

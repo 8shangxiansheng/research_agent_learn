@@ -65,6 +65,12 @@ def _build_raw_markdown_response(filename: str, content: str) -> PlainTextRespon
     return response
 
 
+def _slugify_report_filename(query: str) -> str:
+    """Generate a stable report filename from a research query."""
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", query.strip().lower()).strip("-")
+    return f"{slug or 'research-brief'}.md"
+
+
 # ========== Session Endpoints ==========
 
 @router.get("/sessions", response_model=List[schemas.SessionListResponse])
@@ -190,6 +196,31 @@ def get_research_task(
 ):
     """Get one persisted research task."""
     task = crud.get_research_task(db, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+    return _serialize_research_task(task)
+
+
+@router.put(
+    "/research/tasks/{task_id}",
+    response_model=schemas.ResearchTaskResponse,
+)
+def update_research_task(
+    task_id: int,
+    payload: schemas.ResearchTaskUpdate,
+    db: Session = Depends(get_db),
+):
+    """Rename a persisted research task."""
+    query = payload.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Research query cannot be empty")
+
+    task = crud.update_research_task(
+        db,
+        task_id,
+        query=query,
+        report_filename=_slugify_report_filename(query),
+    )
     if task is None:
         raise HTTPException(status_code=404, detail="Research task not found")
     return _serialize_research_task(task)

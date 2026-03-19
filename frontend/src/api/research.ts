@@ -11,6 +11,10 @@ export interface ResearchTaskRequest {
   session_id?: number
 }
 
+export interface ResearchTaskUpdateRequest {
+  query: string
+}
+
 export interface ResearchSource {
   source_id: string
   citation_label: string
@@ -61,6 +65,11 @@ export async function getResearchTask(taskId: number): Promise<ResearchTaskResul
 
 export async function getSessionResearchTasks(sessionId: number): Promise<ResearchTaskResult[]> {
   const response = await axios.get<ResearchTaskResult[]>(`${API_BASE}/sessions/${sessionId}/research-tasks`)
+  return response.data
+}
+
+export async function updateResearchTask(taskId: number, data: ResearchTaskUpdateRequest): Promise<ResearchTaskResult> {
+  const response = await axios.put<ResearchTaskResult>(`${API_BASE}/research/tasks/${taskId}`, data)
   return response.data
 }
 

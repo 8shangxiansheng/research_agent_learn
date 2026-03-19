@@ -462,6 +462,54 @@ def test_research_task_rejects_unknown_session(
     assert response.json()["detail"] == "Session not found"
 
 
+def test_update_research_task_renames_query_and_report_filename(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            return {
+                "query": query,
+                "status": "completed",
+                "generated_at": "2026-03-19T10:00:00Z",
+                "report_filename": "graph-neural-networks.md",
+                "plan": ["Understand the topic"],
+                "sources": [],
+                "answer": "Structured answer. [S1]",
+                "report_markdown": "# Research Brief\n",
+            }
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    session_response = client.post("/api/sessions", json={"title": "Research Session"})
+    session_id = session_response.json()["id"]
+    task_response = client.post(
+        "/api/research/tasks",
+        json={"query": "graph neural networks", "session_id": session_id},
+    )
+    task_id = task_response.json()["id"]
+
+    update_response = client.put(
+        f"/api/research/tasks/{task_id}",
+        json={"query": "molecular graph learning"},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["query"] == "molecular graph learning"
+    assert update_response.json()["report_filename"] == "molecular-graph-learning.md"
+
+    detail_response = client.get(f"/api/research/tasks/{task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["query"] == "molecular graph learning"
+
+
+def test_update_research_task_rejects_empty_query(client: TestClient) -> None:
+    response = client.put("/api/research/tasks/1", json={"query": "   "})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Research query cannot be empty"
+
+
 def test_share_research_task_to_session_creates_assistant_message(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

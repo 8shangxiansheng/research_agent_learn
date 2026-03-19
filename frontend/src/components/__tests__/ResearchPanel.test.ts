@@ -48,6 +48,7 @@ const mockResearchStore = {
   runTask: vi.fn(),
   fetchTasks: vi.fn(),
   selectTask: vi.fn(),
+  renameTask: vi.fn(),
   removeTask: vi.fn(),
   clearTask: vi.fn(),
 }
@@ -86,6 +87,7 @@ describe('ResearchPanel', () => {
     mockResearchStore.runTask.mockReset()
     mockResearchStore.fetchTasks.mockReset()
     mockResearchStore.selectTask.mockReset()
+    mockResearchStore.renameTask.mockReset()
     mockResearchStore.removeTask.mockReset()
     mockResearchStore.clearTask.mockReset()
     downloadResearchTaskReportMock.mockReset()
@@ -295,6 +297,39 @@ describe('ResearchPanel', () => {
 
     await wrapper.get('.history-delete').trigger('click')
     expect(mockResearchStore.removeTask).toHaveBeenCalledWith(9)
+  })
+
+  it('renames a task from research history', async () => {
+    mockChatStore.currentSession = { id: 3, title: 'Session 3' }
+    mockResearchStore.tasks = [
+      {
+        id: 9,
+        query: 'attention mechanisms',
+        generated_at: '2026-03-19T10:00:00Z',
+      },
+    ]
+    mockResearchStore.filteredTasks = mockResearchStore.tasks
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('transformer scaling laws')
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': {
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            template: '<input data-test="history-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+          },
+          'el-button': {
+            template: '<button><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('.history-rename').trigger('click')
+    expect(promptSpy).toHaveBeenCalledWith('Rename research task', 'attention mechanisms')
+    expect(mockResearchStore.renameTask).toHaveBeenCalledWith(9, 'transformer scaling laws')
+    promptSpy.mockRestore()
   })
 
   it('inserts the selected research brief into chat with summary mode', async () => {

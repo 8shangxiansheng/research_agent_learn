@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type { ResearchTaskResult } from '@/api/research'
-import { deleteResearchTask, getSessionResearchTasks, runResearchTask } from '@/api/research'
+import { deleteResearchTask, getSessionResearchTasks, runResearchTask, updateResearchTask } from '@/api/research'
 
 export const useResearchStore = defineStore('research', () => {
   const currentTask = ref<ResearchTaskResult | null>(null)
@@ -87,6 +87,27 @@ export const useResearchStore = defineStore('research', () => {
     }
   }
 
+  async function renameTask(taskId: number, query: string): Promise<void> {
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) {
+      error.value = 'Research query cannot be empty'
+      return
+    }
+
+    try {
+      error.value = null
+      const updatedTask = await updateResearchTask(taskId, { query: normalizedQuery })
+      tasks.value = tasks.value.map(task => task.id === taskId ? updatedTask : task)
+      if (currentTask.value?.id === taskId) {
+        currentTask.value = updatedTask
+      }
+    } catch (e) {
+      error.value = 'Failed to rename research task'
+      console.error(e)
+      throw e
+    }
+  }
+
   function clearTask(): void {
     currentTask.value = null
     error.value = null
@@ -104,6 +125,7 @@ export const useResearchStore = defineStore('research', () => {
     runTask,
     fetchTasks,
     selectTask,
+    renameTask,
     removeTask,
     clearTask,
   }

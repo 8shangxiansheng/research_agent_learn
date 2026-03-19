@@ -68,6 +68,12 @@
           <div class="history-item-row">
             <span>{{ task.generated_at.slice(0, 10) }}</span>
             <span
+              class="history-rename"
+              @click.stop="renameTask(task.id, task.query)"
+            >
+              Rename
+            </span>
+            <span
               class="history-delete"
               @click.stop="removeTask(task.id)"
             >
@@ -177,6 +183,15 @@ async function insertIntoChat(mode: 'summary' | 'full'): Promise<void> {
 
 async function removeTask(taskId: number): Promise<void> {
   await researchStore.removeTask(taskId)
+}
+
+async function renameTask(taskId: number, currentQuery: string): Promise<void> {
+  const nextQuery = window.prompt('Rename research task', currentQuery)
+  if (nextQuery === null) {
+    return
+  }
+
+  await researchStore.renameTask(taskId, nextQuery)
 }
 
 async function exportReport(): Promise<void> {
@@ -315,6 +330,11 @@ watch(
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+}
+
+.history-rename {
+  color: #2563eb;
+  font-weight: 600;
 }
 
 .history-delete {
