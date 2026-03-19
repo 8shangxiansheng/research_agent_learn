@@ -18,6 +18,15 @@ const mockLocaleStore = {
     'research.clearDocument': 'Clear Document',
     'research.documentAttached': 'Attached document',
     'research.documentFormats': 'Supported: TXT, MD, PDF',
+    'research.progress': 'Research Progress',
+    'research.phase.planning': 'Planning',
+    'research.phase.retrieving': 'Retrieving Sources',
+    'research.phase.synthesizing': 'Synthesizing Answer',
+    'research.phase.completed': 'Completed',
+    'research.phase.planning.detail': 'Clarifying the research objective',
+    'research.phase.retrieving.detail': 'Gathering relevant evidence sources',
+    'research.phase.synthesizing.detail': 'Drafting a source-backed summary',
+    'research.phase.completed.detail': 'Research brief is ready',
     'research.history': 'Research History',
     'research.loading': 'Loading...',
     'research.historySearch': 'Search research history',
@@ -46,6 +55,11 @@ const mockResearchStore = {
     session_id?: number | null
     report_filename: string
     plan: string[]
+    phase_statuses: Array<{
+      phase: 'planning' | 'retrieving' | 'synthesizing' | 'completed'
+      status: 'pending' | 'active' | 'completed'
+      detail: string
+    }>
     sources: Array<{
       source_id: string
       citation_label: string
@@ -85,6 +99,11 @@ const mockResearchStore = {
   historyQuery: '',
   isRunning: false,
   isLoadingHistory: false,
+  visiblePhaseStatuses: [] as Array<{
+    phase: 'planning' | 'retrieving' | 'synthesizing' | 'completed'
+    status: 'pending' | 'active' | 'completed'
+    detail: string
+  }>,
   error: null as string | null,
   runTask: vi.fn(),
   fetchTasks: vi.fn(),
@@ -128,6 +147,7 @@ describe('ResearchPanel', () => {
     mockResearchStore.historyQuery = ''
     mockResearchStore.isRunning = false
     mockResearchStore.isLoadingHistory = false
+    mockResearchStore.visiblePhaseStatuses = []
     mockResearchStore.error = null
     mockChatStore.currentSession = null
     mockChatStore.appendResearchTask.mockReset()
@@ -221,11 +241,18 @@ describe('ResearchPanel', () => {
 
   it('renders research results when a task exists', () => {
     mockChatStore.currentSession = { id: 7, title: 'Research Session' }
+    mockResearchStore.visiblePhaseStatuses = [
+      { phase: 'planning', status: 'completed', detail: '2 planned steps prepared' },
+      { phase: 'retrieving', status: 'completed', detail: '1 source gathered' },
+      { phase: 'synthesizing', status: 'completed', detail: '1 evidence-linked claim synthesized' },
+      { phase: 'completed', status: 'completed', detail: 'Research brief is ready' },
+    ]
     mockResearchStore.currentTask = {
       id: 1,
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one', 'step two'],
+      phase_statuses: mockResearchStore.visiblePhaseStatuses,
       sources: [
         {
           source_id: 'arxiv-1',
@@ -268,6 +295,8 @@ describe('ResearchPanel', () => {
     })
 
     expect(wrapper.text()).toContain('step one')
+    expect(wrapper.text()).toContain('Research Progress')
+    expect(wrapper.text()).toContain('Planning')
     expect(wrapper.text()).toContain('Paper Title')
     expect(wrapper.text()).toContain('Evidence Map')
     expect(wrapper.text()).toContain('Structured answer')
@@ -307,6 +336,7 @@ describe('ResearchPanel', () => {
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
+      phase_statuses: [],
       sources: [],
       evidence_map: [],
       answer: 'Structured answer',
@@ -507,6 +537,7 @@ describe('ResearchPanel', () => {
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
+      phase_statuses: [],
       sources: [],
       evidence_map: [],
       answer: 'Structured answer',
@@ -540,6 +571,7 @@ describe('ResearchPanel', () => {
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
+      phase_statuses: [],
       sources: [],
       evidence_map: [],
       answer: 'Structured answer',
@@ -564,5 +596,29 @@ describe('ResearchPanel', () => {
     await insertButton!.trigger('click')
 
     expect(mockChatStore.appendResearchTask).toHaveBeenCalledWith(11, 'full')
+  })
+
+  it('renders live research progress while a task is running', () => {
+    mockChatStore.currentSession = { id: 7, title: 'Research Session' }
+    mockResearchStore.isRunning = true
+    mockResearchStore.visiblePhaseStatuses = [
+      { phase: 'planning', status: 'completed', detail: 'Clarifying the research objective' },
+      { phase: 'retrieving', status: 'active', detail: 'Gathering relevant evidence sources' },
+      { phase: 'synthesizing', status: 'pending', detail: 'Drafting a source-backed summary' },
+      { phase: 'completed', status: 'pending', detail: 'Research brief is ready' },
+    ]
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': true,
+          'el-button': true,
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-test="research-progress"]').text()).toContain('Research Progress')
+    expect(wrapper.text()).toContain('Retrieving Sources')
+    expect(wrapper.text()).toContain('Gathering relevant evidence sources')
   })
 })

@@ -126,6 +126,13 @@ class ResearchEvidenceItemResponse(BaseModel):
     source_titles: list[str]
 
 
+class ResearchPhaseStatusResponse(BaseModel):
+    """Research workflow phase status for progress rendering."""
+    phase: Literal["planning", "retrieving", "synthesizing", "completed"]
+    status: Literal["pending", "active", "completed"]
+    detail: str
+
+
 class ResearchTaskResponse(BaseModel):
     """Schema for the minimal research workflow result."""
     id: int
@@ -135,6 +142,7 @@ class ResearchTaskResponse(BaseModel):
     generated_at: datetime
     report_filename: str
     plan: list[str]
+    phase_statuses: list[ResearchPhaseStatusResponse] = []
     sources: list[ResearchSourceResponse]
     evidence_map: list[ResearchEvidenceItemResponse] = []
     answer: str

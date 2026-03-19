@@ -119,6 +119,7 @@ Possible error cases:
   - `generated_at`
   - `report_filename`
   - `plan`
+  - `phase_statuses`
   - `sources`
   - `evidence_map`
   - `answer`
@@ -209,6 +210,7 @@ Possible error cases:
 - Unknown citations are stripped when they do not map to the current source set.
 - Claim segments without citations are backfilled with fallback source markers so each answer segment remains source-backed.
 - `evidence_map` provides a structured list of claims, citation labels, and source titles for UI rendering.
+- `phase_statuses` provides completed workflow phase summaries for planning, retrieval, synthesis, and final completion.
 
 ## WebSocket
 

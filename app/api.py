@@ -34,6 +34,11 @@ def _serialize_research_task(task: object) -> schemas.ResearchTaskResponse:
         generated_at=task.created_at,
         report_filename=task.report_filename,
         plan=json.loads(task.plan_json),
+        phase_statuses=_citation_orchestrator.build_phase_statuses(
+            plan=json.loads(task.plan_json),
+            sources=sources,
+            answer=task.answer,
+        ),
         sources=sources,
         evidence_map=evidence_map,
         answer=task.answer,

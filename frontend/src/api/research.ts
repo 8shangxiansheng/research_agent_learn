@@ -48,6 +48,12 @@ export interface ResearchEvidenceItem {
   source_titles: string[]
 }
 
+export interface ResearchPhaseStatus {
+  phase: 'planning' | 'retrieving' | 'synthesizing' | 'completed'
+  status: 'pending' | 'active' | 'completed'
+  detail: string
+}
+
 export interface ResearchTaskResult {
   id: number
   session_id?: number | null
@@ -56,6 +62,7 @@ export interface ResearchTaskResult {
   generated_at: string
   report_filename: string
   plan: string[]
+  phase_statuses: ResearchPhaseStatus[]
   sources: ResearchSource[]
   evidence_map: ResearchEvidenceItem[]
   answer: string

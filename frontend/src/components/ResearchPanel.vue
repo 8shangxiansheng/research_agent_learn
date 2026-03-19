@@ -73,6 +73,27 @@
       <span>{{ selectedDocument.filename }}</span>
     </div>
 
+    <section
+      v-if="researchStore.visiblePhaseStatuses.length"
+      class="progress-card"
+      data-test="research-progress"
+    >
+      <h4>{{ localeStore.t('research.progress') }}</h4>
+      <div class="phase-list">
+        <div
+          v-for="item in researchStore.visiblePhaseStatuses"
+          :key="item.phase"
+          :class="['phase-item', `is-${item.status}`]"
+        >
+          <div class="phase-row">
+            <span class="phase-label">{{ localeStore.t(`research.phase.${item.phase}`) }}</span>
+            <span class="phase-status">{{ item.status }}</span>
+          </div>
+          <p class="phase-detail">{{ item.detail }}</p>
+        </div>
+      </div>
+    </section>
+
     <p v-if="researchStore.error" class="error-text">{{ researchStore.error }}</p>
 
     <section v-if="chatStore.currentSession" class="history-strip">
@@ -437,6 +458,73 @@ watch(
   font-size: 13px;
 }
 
+.progress-card {
+  padding: 12px 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.progress-card h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #1e3a8a;
+}
+
+.phase-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.phase-item {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #dbeafe;
+  background: white;
+}
+
+.phase-item.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.phase-item.is-completed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.phase-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.phase-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.phase-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.phase-item.is-completed .phase-status {
+  color: #15803d;
+}
+
+.phase-detail {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #4b5563;
+}
+
 .error-text {
   color: #d14343;
   font-size: 13px;
@@ -716,10 +804,18 @@ pre {
   .result-grid {
     grid-template-columns: 1fr;
   }
+
+  .phase-list {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 720px) {
   .query-row {
+    grid-template-columns: 1fr;
+  }
+
+  .phase-list {
     grid-template-columns: 1fr;
   }
 }

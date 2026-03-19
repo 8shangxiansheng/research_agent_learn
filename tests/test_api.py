@@ -418,6 +418,8 @@ def test_research_task_returns_structured_result(
     assert payload["status"] == "completed"
     assert payload["report_filename"] == "graph-neural-networks.md"
     assert payload["plan"] == ["Understand the topic", "Retrieve papers", "Write brief"]
+    assert payload["phase_statuses"][0]["phase"] == "planning"
+    assert payload["phase_statuses"][-1]["phase"] == "completed"
     assert payload["sources"][0]["citation_label"] == "S1"
     assert payload["sources"][0]["title"] == "Graph Neural Networks"
     assert payload["answer"] == "This field summarizes the research topic."

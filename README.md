@@ -9,6 +9,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Locale-aware dates, times, and frontend error messages for Chinese and English users
 - Research task workflow with plan, sources, synthesis, and report output
 - Structured evidence map that links answer claims back to cited sources
+- Research phase progress display for planning, retrieval, synthesis, and completion
 - Local TXT / Markdown document upload for grounding research tasks with user-provided notes
 - Research history per session with rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations

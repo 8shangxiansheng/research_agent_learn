@@ -16,6 +16,29 @@ class ResearchOrchestrator:
     _STRICT_CITATION_PATTERN = re.compile(r"\[(S\d+)\]")
     _SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
 
+    def build_phase_statuses(
+        self,
+        *,
+        plan: list[str],
+        sources: list[dict[str, Any]],
+        answer: str,
+    ) -> list[dict[str, str]]:
+        """Build a completed phase summary for one research result."""
+        planning_detail = f"{len(plan)} planned step{'s' if len(plan) != 1 else ''} prepared"
+        retrieval_detail = f"{len(sources)} source{'s' if len(sources) != 1 else ''} gathered"
+        evidence_count = len(self.build_evidence_map(answer, sources))
+        synthesizing_detail = (
+            f"{evidence_count} evidence-linked claim{'s' if evidence_count != 1 else ''} synthesized"
+            if evidence_count
+            else "Research synthesis completed"
+        )
+        return [
+            {"phase": "planning", "status": "completed", "detail": planning_detail},
+            {"phase": "retrieving", "status": "completed", "detail": retrieval_detail},
+            {"phase": "synthesizing", "status": "completed", "detail": synthesizing_detail},
+            {"phase": "completed", "status": "completed", "detail": "Research brief is ready"},
+        ]
+
     def _build_report_filename(self, query: str) -> str:
         safe = "".join(char.lower() if char.isalnum() else "-" for char in query.strip())
         normalized = "-".join(part for part in safe.split("-") if part)
@@ -247,6 +270,7 @@ class ResearchOrchestrator:
             "generated_at": datetime.now(UTC),
             "report_filename": self._build_report_filename(query),
             "plan": plan,
+            "phase_statuses": self.build_phase_statuses(plan=plan, sources=sources, answer=answer),
             "sources": sources,
             "answer": answer,
             "report_markdown": report_markdown,
