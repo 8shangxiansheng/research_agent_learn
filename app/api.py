@@ -226,6 +226,31 @@ def update_research_task(
     return _serialize_research_task(task)
 
 
+@router.post(
+    "/research/tasks/{task_id}/rerun",
+    response_model=schemas.ResearchTaskResponse,
+)
+async def rerun_research_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    """Rerun a persisted research task and refresh its stored result."""
+    task = crud.get_research_task(db, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+
+    max_sources = max(1, min(len(json.loads(task.sources_json)) or 3, 5))
+    result = await get_research_orchestrator().run(query=task.query, max_sources=max_sources)
+    updated_task = crud.refresh_research_task(
+        db,
+        task_id,
+        result=result,
+    )
+    if updated_task is None:
+        raise HTTPException(status_code=404, detail="Research task not found")
+    return _serialize_research_task(updated_task)
+
+
 @router.get(
     "/research/tasks/{task_id}/report",
     response_model=schemas.SessionExportResponse,

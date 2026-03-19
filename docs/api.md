@@ -138,6 +138,11 @@ Example:
 }
 ```
 
+`POST /api/research/tasks/{task_id}/rerun`
+
+- Re-executes one persisted research task using its current query.
+- Refreshes the stored `plan`, `sources`, `answer`, and `report_markdown` in place.
+
 `GET /api/research/tasks/{task_id}/report`
 
 - Returns a JSON payload:

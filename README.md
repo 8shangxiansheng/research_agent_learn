@@ -6,7 +6,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 
 - Multi-session chat interface for organizing research conversations
 - Research task workflow with plan, sources, synthesis, and report output
-- Research history per session with rename, share-to-chat, and report export
+- Research history per session with rerun, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations
 - Session export to Markdown for note taking and sharing
 - Assistant answer retry for regenerating the latest response in place

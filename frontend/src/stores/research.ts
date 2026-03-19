@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type { ResearchTaskResult } from '@/api/research'
-import { deleteResearchTask, getSessionResearchTasks, runResearchTask, updateResearchTask } from '@/api/research'
+import { deleteResearchTask, getSessionResearchTasks, rerunResearchTask, runResearchTask, updateResearchTask } from '@/api/research'
 
 export const useResearchStore = defineStore('research', () => {
   const currentTask = ref<ResearchTaskResult | null>(null)
@@ -108,6 +108,22 @@ export const useResearchStore = defineStore('research', () => {
     }
   }
 
+  async function rerunTask(taskId: number): Promise<void> {
+    try {
+      isRunning.value = true
+      error.value = null
+      const updatedTask = await rerunResearchTask(taskId)
+      tasks.value = tasks.value.map(task => task.id === taskId ? updatedTask : task)
+      currentTask.value = updatedTask
+    } catch (e) {
+      error.value = 'Failed to rerun research task'
+      console.error(e)
+      throw e
+    } finally {
+      isRunning.value = false
+    }
+  }
+
   function clearTask(): void {
     currentTask.value = null
     error.value = null
@@ -126,6 +142,7 @@ export const useResearchStore = defineStore('research', () => {
     fetchTasks,
     selectTask,
     renameTask,
+    rerunTask,
     removeTask,
     clearTask,
   }

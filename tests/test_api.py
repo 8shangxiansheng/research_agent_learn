@@ -510,6 +510,85 @@ def test_update_research_task_rejects_empty_query(client: TestClient) -> None:
     assert response.json()["detail"] == "Research query cannot be empty"
 
 
+def test_rerun_research_task_refreshes_persisted_result(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_max_sources = iter([3, 1])
+    answers = iter([
+        {
+            "query": "graph neural networks",
+            "status": "completed",
+            "generated_at": "2026-03-19T10:00:00Z",
+            "report_filename": "graph-neural-networks.md",
+            "plan": ["Understand the topic"],
+            "sources": [
+                {
+                    "source_id": "arxiv-1",
+                    "citation_label": "S1",
+                    "title": "Graph Neural Networks",
+                    "authors": ["Author A"],
+                    "abstract": "Initial abstract.",
+                    "published_at": "2024-01-01T00:00:00Z",
+                    "url": "https://arxiv.org/abs/1234.5678",
+                    "pdf_url": "https://arxiv.org/pdf/1234.5678.pdf",
+                    "source_type": "arxiv",
+                    "score": 3,
+                }
+            ],
+            "answer": "Initial answer. [S1]",
+            "report_markdown": "# Research Brief: graph neural networks\n\nInitial answer. [S1]\n",
+        },
+        {
+            "query": "graph neural networks",
+            "status": "completed",
+            "generated_at": "2026-03-19T10:05:00Z",
+            "report_filename": "graph-neural-networks.md",
+            "plan": ["Refresh the topic"],
+            "sources": [
+                {
+                    "source_id": "arxiv-2",
+                    "citation_label": "S1",
+                    "title": "Updated Graph Neural Networks",
+                    "authors": ["Author B"],
+                    "abstract": "Updated abstract.",
+                    "published_at": "2025-01-01T00:00:00Z",
+                    "url": "https://arxiv.org/abs/2345.6789",
+                    "pdf_url": "https://arxiv.org/pdf/2345.6789.pdf",
+                    "source_type": "arxiv",
+                    "score": 3,
+                }
+            ],
+            "answer": "Updated answer. [S1]",
+            "report_markdown": "# Research Brief: graph neural networks\n\nUpdated answer. [S1]\n",
+        },
+    ])
+
+    class FakeResearchOrchestrator:
+        async def run(self, query: str, max_sources: int = 3):
+            assert query == "graph neural networks"
+            assert max_sources == next(expected_max_sources)
+            return next(answers)
+
+    monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
+
+    session_response = client.post("/api/sessions", json={"title": "Research Session"})
+    session_id = session_response.json()["id"]
+    task_response = client.post(
+        "/api/research/tasks",
+        json={"query": "graph neural networks", "session_id": session_id},
+    )
+    task_id = task_response.json()["id"]
+
+    rerun_response = client.post(f"/api/research/tasks/{task_id}/rerun")
+
+    assert rerun_response.status_code == 200
+    assert rerun_response.json()["id"] == task_id
+    assert rerun_response.json()["answer"] == "Updated answer. [S1]"
+    assert rerun_response.json()["plan"] == ["Refresh the topic"]
+    assert rerun_response.json()["sources"][0]["title"] == "Updated Graph Neural Networks"
+
+
 def test_share_research_task_to_session_creates_assistant_message(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

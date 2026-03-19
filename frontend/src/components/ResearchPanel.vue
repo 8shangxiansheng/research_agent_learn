@@ -68,6 +68,12 @@
           <div class="history-item-row">
             <span>{{ task.generated_at.slice(0, 10) }}</span>
             <span
+              class="history-rerun"
+              @click.stop="rerunTask(task.id)"
+            >
+              Rerun
+            </span>
+            <span
               class="history-rename"
               @click.stop="renameTask(task.id, task.query)"
             >
@@ -192,6 +198,10 @@ async function renameTask(taskId: number, currentQuery: string): Promise<void> {
   }
 
   await researchStore.renameTask(taskId, nextQuery)
+}
+
+async function rerunTask(taskId: number): Promise<void> {
+  await researchStore.rerunTask(taskId)
 }
 
 async function exportReport(): Promise<void> {
@@ -334,6 +344,11 @@ watch(
 
 .history-rename {
   color: #2563eb;
+  font-weight: 600;
+}
+
+.history-rerun {
+  color: #0f766e;
   font-weight: 600;
 }
 

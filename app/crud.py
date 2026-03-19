@@ -274,6 +274,29 @@ def update_research_task(
     return task
 
 
+def refresh_research_task(
+    db: Session,
+    task_id: int,
+    *,
+    result: dict[str, Any],
+) -> Optional[ResearchTask]:
+    """Replace a persisted research task with a freshly rerun result."""
+    task = get_research_task(db, task_id)
+    if task is None:
+        return None
+
+    task.query = result["query"]
+    task.status = result["status"]
+    task.report_filename = result["report_filename"]
+    task.answer = result["answer"]
+    task.plan_json = json.dumps(result["plan"])
+    task.sources_json = json.dumps(result["sources"])
+    task.report_markdown = result["report_markdown"]
+    db.commit()
+    db.refresh(task)
+    return task
+
+
 def delete_research_task(db: Session, task_id: int) -> bool:
     """Delete a persisted research task."""
     task = get_research_task(db, task_id)

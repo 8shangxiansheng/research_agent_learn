@@ -73,6 +73,11 @@ export async function updateResearchTask(taskId: number, data: ResearchTaskUpdat
   return response.data
 }
 
+export async function rerunResearchTask(taskId: number): Promise<ResearchTaskResult> {
+  const response = await axios.post<ResearchTaskResult>(`${API_BASE}/research/tasks/${taskId}/rerun`)
+  return response.data
+}
+
 export async function deleteResearchTask(taskId: number): Promise<void> {
   await axios.delete(`${API_BASE}/research/tasks/${taskId}`)
 }
