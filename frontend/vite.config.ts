@@ -17,16 +17,29 @@ export default defineConfig({
             return
           }
 
-          if (id.includes('element-plus')) {
-            return 'element-plus'
-          }
+          if (id.includes('element-plus/es/components/')) {
+            const componentMatch = id.match(/element-plus\/es\/components\/([^/]+)/)
+            const componentName = componentMatch?.[1]
 
-          if (id.includes('@element-plus/icons-vue')) {
-            return 'element-plus-icons'
-          }
+            if (componentName === 'container' || componentName === 'avatar' || componentName === 'icon') {
+              return 'ep-layout'
+            }
 
-          if (id.includes('/vue/') || id.includes('/pinia/')) {
-            return 'vue-vendor'
+            if (componentName === 'button' || componentName === 'input' || componentName === 'scrollbar') {
+              return 'ep-input'
+            }
+
+            if (componentName === 'dropdown') {
+              return 'ep-overlay'
+            }
+
+            if (componentName === 'message' || componentName === 'message-box') {
+              return 'ep-feedback'
+            }
+
+            if (componentName) {
+              return `ep-${componentName}`
+            }
           }
 
           if (id.includes('markdown-it')) {
