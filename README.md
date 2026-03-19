@@ -12,7 +12,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Research phase progress display for planning, retrieval, synthesis, and completion
 - Local TXT / Markdown document upload for grounding research tasks with user-provided notes
 - Mixed-source research retrieval with arXiv papers plus Crossref metadata enrichment
-- Research history per session with search, source filtering, sorting, selection, bulk delete, rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
+- Research history per session with search, source filtering, sorting, selection, bulk delete, rerun-in-place, rerun-as-new, rename, share-to-chat, continue-in-chat context, and report export
 - Session title search for quickly filtering conversations
 - Session export to Markdown for note taking and sharing
 - Assistant answer retry for regenerating the latest response in place
@@ -28,9 +28,9 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend unit tests: `30` passing
+- Frontend unit tests: `34` passing
 - Frontend E2E tests: `2` passing
-- Backend Python tests: `36` passing
+- Backend Python tests: `37` passing
 - Playwright browser flow is now part of the repository and CI pipeline
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stricter inline source markers such as `[S1]`, and responses expose an evidence map derived from those citations
@@ -142,6 +142,12 @@ The frontend development server default is also configured to use port `4173`, s
 - Exported Markdown includes a report snapshot, key takeaways, research plan, source catalogue, evidence map, and full synthesis.
 - The raw export endpoint returns the same structured Markdown with a download-friendly filename header.
 
+### Research Follow-up Context
+
+- Any persisted research task can now be activated as the current chat context with `Continue in Chat`.
+- Follow-up questions stay readable in the session transcript, while the backend receives an augmented prompt built from the selected research brief.
+- The chat header shows the active research context and lets the user clear it before sending a normal message again.
+
 ### End-to-End Testing
 
 - Browser-based E2E coverage now lives under `frontend/e2e/` and runs with `npm run test:e2e`.
@@ -211,12 +217,14 @@ docker-compose down
 - Research tasks persist `plan`, `sources`, `answer`, and `report_markdown`
 - Research answers should reference evidence with inline markers like `[S1]`
 - Research reports can be exported as JSON payloads or raw Markdown downloads
+- Research tasks can be activated as follow-up context for later chat turns without polluting the visible user message
 
 ### WebSocket
 
 - Endpoint: `/api/ws/chat/{session_id}`
 - Protocol:
-  - Client sends: `{"content": "user message"}`
+  - Client sends: `{"content": "model prompt", "display_content": "visible user message"}`
+  - `display_content` is optional and defaults to `content`
   - Server sends: `{"type": "chunk", "content": "response chunk"}`
   - Server sends: `{"type": "done", "content": "full response"}`
 

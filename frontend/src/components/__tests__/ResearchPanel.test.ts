@@ -55,6 +55,7 @@ const mockLocaleStore = {
     'research.answer': 'Research Answer',
     'research.insertSummary': 'Insert Summary',
     'research.insertFull': 'Insert Full',
+    'research.continueInChat': 'Continue in Chat',
     'research.viewMarkdown': 'View Markdown report',
     'research.abstract': 'Abstract',
     'research.renamePrompt': 'Rename research task',
@@ -65,6 +66,8 @@ const mockLocaleStore = {
 const mockResearchStore = {
   currentTask: null as null | {
     id: number
+    query: string
+    generated_at: string
     session_id?: number | null
     report_filename: string
     plan: string[]
@@ -170,6 +173,7 @@ vi.mock('@/stores/locale', () => ({
 const mockChatStore = {
   currentSession: null as null | { id: number; title: string },
   appendResearchTask: vi.fn(),
+  setResearchContext: vi.fn(),
 }
 
 vi.mock('@/stores/chat', () => ({
@@ -201,6 +205,7 @@ describe('ResearchPanel', () => {
     mockResearchStore.error = null
     mockChatStore.currentSession = null
     mockChatStore.appendResearchTask.mockReset()
+    mockChatStore.setResearchContext.mockReset()
     mockResearchStore.runTask.mockReset()
     mockResearchStore.fetchTasks.mockReset()
     mockResearchStore.selectTask.mockReset()
@@ -303,6 +308,8 @@ describe('ResearchPanel', () => {
     ]
     mockResearchStore.currentTask = {
       id: 1,
+      query: 'graph neural networks',
+      generated_at: '2026-03-19T08:00:00Z',
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one', 'step two'],
@@ -405,6 +412,8 @@ describe('ResearchPanel', () => {
 
     mockResearchStore.currentTask = {
       id: 1,
+      query: 'graph neural networks',
+      generated_at: '2026-03-19T08:00:00Z',
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
@@ -667,6 +676,8 @@ describe('ResearchPanel', () => {
     mockChatStore.currentSession = { id: 7, title: 'Research Session' }
     mockResearchStore.currentTask = {
       id: 11,
+      query: 'graph neural networks',
+      generated_at: '2026-03-19T08:00:00Z',
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
@@ -701,6 +712,8 @@ describe('ResearchPanel', () => {
     mockChatStore.currentSession = { id: 7, title: 'Research Session' }
     mockResearchStore.currentTask = {
       id: 11,
+      query: 'graph neural networks',
+      generated_at: '2026-03-19T08:00:00Z',
       session_id: 7,
       report_filename: 'graph-neural-networks.md',
       plan: ['step one'],
@@ -729,6 +742,44 @@ describe('ResearchPanel', () => {
     await insertButton!.trigger('click')
 
     expect(mockChatStore.appendResearchTask).toHaveBeenCalledWith(11, 'full')
+  })
+
+  it('activates the selected research brief as chat context', async () => {
+    mockChatStore.currentSession = { id: 7, title: 'Research Session' }
+    mockResearchStore.currentTask = {
+      id: 11,
+      session_id: 7,
+      query: 'transformer scaling laws',
+      generated_at: '2026-03-19T08:00:00Z',
+      report_filename: 'research-brief-transformer-scaling-laws.md',
+      plan: ['Collect recent papers'],
+      phase_statuses: [],
+      sources: [],
+      evidence_map: [],
+      answer: 'Scaling laws trend upward with compute.',
+      report_markdown: '# Research Brief',
+    }
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': {
+            props: ['modelValue', 'disabled'],
+            emits: ['update:modelValue', 'keydown'],
+            template:
+              `<input v-bind="$attrs" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" @keydown="$emit('keydown', $event)" />`,
+          },
+          'el-button': {
+            props: ['disabled', 'loading', 'text', 'plain', 'type'],
+            emits: ['click'],
+            template: `<button v-bind="$attrs" :disabled="disabled || loading" @click="$emit('click')"><slot /></button>`,
+          },
+        },
+      },
+    })
+
+    await wrapper.get('[data-test="continue-in-chat"]').trigger('click')
+    expect(mockChatStore.setResearchContext).toHaveBeenCalledWith(mockResearchStore.currentTask)
   })
 
   it('renders live research progress while a task is running', () => {

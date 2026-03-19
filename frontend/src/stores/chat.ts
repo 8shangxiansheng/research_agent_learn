@@ -4,6 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Session, Message } from '@/api/sessions'
+import type { ResearchTaskResult } from '@/api/research'
 import * as api from '@/api/sessions'
 import { ChatWebSocket, type WebSocketMessage } from '@/api/websocket'
 import { useLocaleStore } from '@/stores/locale'
@@ -24,6 +25,7 @@ export const useChatStore = defineStore('chat', () => {
   const websocketStatus = ref<WebSocketStatus>('idle')
   const websocketStatusDetail = ref('')
   const websocketReconnectAttempt = ref(0)
+  const activeResearchContext = ref<ResearchTaskResult | null>(null)
 
   // WebSocket instance
   let websocket: ChatWebSocket | null = null
@@ -31,6 +33,8 @@ export const useChatStore = defineStore('chat', () => {
   // Getters
   const currentMessages = computed(() => messages.value)
   const hasCurrentSession = computed(() => currentSession.value !== null)
+  const hasActiveResearchContext = computed(() => activeResearchContext.value !== null)
+  const activeResearchContextTitle = computed(() => activeResearchContext.value?.query ?? '')
   const websocketStatusLabel = computed(() => {
     switch (websocketStatus.value) {
       case 'connecting':
@@ -87,6 +91,9 @@ export const useChatStore = defineStore('chat', () => {
    * Select a session and load its messages.
    */
   async function selectSession(session: Session): Promise<void> {
+    if (activeResearchContext.value?.session_id && activeResearchContext.value.session_id !== session.id) {
+      activeResearchContext.value = null
+    }
     currentSession.value = session
     messages.value = session.messages || []
 
@@ -159,6 +166,7 @@ export const useChatStore = defineStore('chat', () => {
       if (currentSession.value?.id === sessionId) {
         currentSession.value = null
         messages.value = []
+        activeResearchContext.value = null
         disconnectWebSocket()
       }
     } catch (e) {
@@ -231,6 +239,27 @@ export const useChatStore = defineStore('chat', () => {
       console.error(e)
       throw e
     }
+  }
+
+  function buildResearchFollowUpPrompt(task: ResearchTaskResult, question: string): string {
+    return [
+      'Use the following research brief as context for the next user follow-up.',
+      'Preserve factual grounding from the cited sources when relevant.',
+      '',
+      `Research topic: ${task.query}`,
+      'Research brief:',
+      task.report_markdown,
+      '',
+      `Follow-up question: ${question}`,
+    ].join('\n')
+  }
+
+  function setResearchContext(task: ResearchTaskResult): void {
+    activeResearchContext.value = task
+  }
+
+  function clearResearchContext(): void {
+    activeResearchContext.value = null
   }
 
   /**
@@ -334,14 +363,25 @@ export const useChatStore = defineStore('chat', () => {
   /**
    * Send a message via WebSocket.
    */
-  function sendMessage(content: string): void {
+  function sendMessage(content: string, promptContent = content): void {
     if (websocket && websocket.isConnected()) {
-      websocket.send(content)
+      websocket.send({
+        content: promptContent,
+        display_content: content,
+      })
     } else {
       websocketStatus.value = 'disconnected'
       websocketStatusDetail.value = localeStore.t('chat.status.disconnectedDetail')
       error.value = localeStore.t('chat.error.websocketDisconnected')
     }
+  }
+
+  function sendFollowUpWithResearchContext(content: string): void {
+    if (!activeResearchContext.value) {
+      sendMessage(content)
+      return
+    }
+    sendMessage(content, buildResearchFollowUpPrompt(activeResearchContext.value, content))
   }
 
   /**
@@ -364,6 +404,9 @@ export const useChatStore = defineStore('chat', () => {
     websocketStatus,
     websocketStatusLabel,
     websocketStatusMessage,
+    activeResearchContext,
+    hasActiveResearchContext,
+    activeResearchContextTitle,
 
     // Getters
     currentMessages,
@@ -378,7 +421,10 @@ export const useChatStore = defineStore('chat', () => {
     exportCurrentSession,
     retryAssistantMessage,
     appendResearchTask,
+    setResearchContext,
+    clearResearchContext,
     sendMessage,
+    sendFollowUpWithResearchContext,
     disconnectWebSocket,
     clearError
   }

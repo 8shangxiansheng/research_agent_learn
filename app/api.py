@@ -571,7 +571,7 @@ async def websocket_chat(
     WebSocket endpoint for streaming chat.
 
     Protocol:
-    - Client sends: {"content": "user message"}
+    - Client sends: {"content": "model prompt", "display_content": "visible user message"}
     - Server sends: {"type": "chunk", "content": "response chunk"}
     - Server sends: {"type": "done", "message_id": int, "content": "full response"}
     - Server sends: {"type": "error", "message": "error description"}
@@ -591,20 +591,21 @@ async def websocket_chat(
             # Receive message from client
             data = await websocket.receive_json()
             user_content = data.get("content", "")
+            display_content = data.get("display_content", user_content)
 
             if not user_content.strip():
                 continue
 
             # Save user message
             user_msg = crud.create_message_direct(
-                db, session_id, "user", user_content
+                db, session_id, "user", display_content
             )
 
             # Send user message confirmation
             await websocket.send_json({
                 "type": "user_message",
                 "message_id": user_msg.id,
-                "content": user_content
+                "content": display_content
             })
 
             # Get conversation history

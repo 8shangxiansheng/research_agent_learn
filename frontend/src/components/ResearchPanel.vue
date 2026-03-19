@@ -307,6 +307,15 @@
             >
               {{ localeStore.t('research.insertFull') }}
             </el-button>
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              data-test="continue-in-chat"
+              @click="continueInChat"
+            >
+              {{ localeStore.t('research.continueInChat') }}
+            </el-button>
           </div>
         </div>
         <p class="answer" data-test="research-answer">{{ researchStore.currentTask.answer }}</p>
@@ -345,6 +354,13 @@ async function insertIntoChat(mode: 'summary' | 'full'): Promise<void> {
     return
   }
   await chatStore.appendResearchTask(researchStore.currentTask.id, mode)
+}
+
+function continueInChat(): void {
+  if (!researchStore.currentTask) {
+    return
+  }
+  chatStore.setResearchContext(researchStore.currentTask)
 }
 
 async function removeTask(taskId: number): Promise<void> {

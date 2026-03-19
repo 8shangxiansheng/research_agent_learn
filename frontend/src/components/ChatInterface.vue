@@ -17,6 +17,19 @@
       >
         {{ chatStore.websocketStatusMessage }}
       </p>
+      <div
+        v-if="chatStore.hasActiveResearchContext"
+        class="research-context-banner"
+        data-test="research-context-banner"
+      >
+        <div>
+          <strong>{{ localeStore.t('chat.researchContextActive') }}</strong>
+          <p>{{ chatStore.activeResearchContextTitle }}</p>
+        </div>
+        <el-button text @click="chatStore.clearResearchContext()">
+          {{ localeStore.t('chat.clearResearchContext') }}
+        </el-button>
+      </div>
     </div>
 
     <div v-if="!chatStore.hasCurrentSession" class="no-session">
@@ -54,7 +67,7 @@
         data-test="chat-input"
         type="textarea"
         :rows="3"
-        :placeholder="localeStore.t('chat.placeholder')"
+        :placeholder="chatStore.hasActiveResearchContext ? localeStore.t('chat.placeholderWithResearchContext') : localeStore.t('chat.placeholder')"
           :disabled="chatStore.isStreaming"
           @keydown.enter.ctrl="handleSend"
         />
@@ -102,7 +115,11 @@ function handleSend(): void {
   const content = inputMessage.value.trim()
   if (!content || chatStore.isStreaming) return
 
-  chatStore.sendMessage(content)
+  if (chatStore.hasActiveResearchContext) {
+    chatStore.sendFollowUpWithResearchContext(content)
+  } else {
+    chatStore.sendMessage(content)
+  }
   inputMessage.value = ''
 
   // Scroll to bottom
@@ -204,6 +221,30 @@ watch(
   margin-top: 8px;
   font-size: 12px;
   color: #6b7280;
+}
+
+.research-context-banner {
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #eff6ff;
+}
+
+.research-context-banner strong {
+  display: block;
+  font-size: 13px;
+  color: #1d4ed8;
+}
+
+.research-context-banner p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #1e3a8a;
 }
 
 .no-session {

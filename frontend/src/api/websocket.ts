@@ -11,6 +11,11 @@ export interface WebSocketMessage {
   message?: string
 }
 
+export interface ChatWebSocketPayload {
+  content: string
+  display_content?: string
+}
+
 export type MessageCallback = (msg: WebSocketMessage) => void
 export type ConnectionCallback = () => void
 export type DisconnectCallback = (event: CloseEvent, willReconnect: boolean, attempt: number, maxAttempts: number) => void
@@ -87,9 +92,9 @@ export class ChatWebSocket {
     }
   }
 
-  send(content: string): void {
+  send(payload: ChatWebSocketPayload): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ content }))
+      this.ws.send(JSON.stringify(payload))
     } else {
       console.error('WebSocket is not connected')
     }

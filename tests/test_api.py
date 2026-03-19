@@ -275,6 +275,51 @@ def test_websocket_agent_error_returns_error_and_keeps_user_message(
     assert messages_response.json()[0]["content"] == "Trigger error"
 
 
+def test_websocket_uses_display_content_for_persisted_user_message(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_prompt = "Use research context\n\nFollow-up question: What changed after 2024?"
+
+    class FakeAgent:
+        async def astream(self, query: str, history=None):
+            assert query == expected_prompt
+            assert history == []
+            yield "Context-aware"
+            yield " answer"
+
+    monkeypatch.setattr(api_module, "get_agent", lambda: FakeAgent())
+
+    session_response = client.post("/api/sessions", json={"title": "Research follow-up"})
+    session_id = session_response.json()["id"]
+
+    with client.websocket_connect(f"/api/ws/chat/{session_id}") as websocket:
+        websocket.send_json({
+            "content": expected_prompt,
+            "display_content": "What changed after 2024?",
+        })
+
+        user_message = websocket.receive_json()
+        first_chunk = websocket.receive_json()
+        second_chunk = websocket.receive_json()
+        done_message = websocket.receive_json()
+
+    assert user_message == {
+        "type": "user_message",
+        "message_id": 1,
+        "content": "What changed after 2024?",
+    }
+    assert first_chunk == {"type": "chunk", "content": "Context-aware"}
+    assert second_chunk == {"type": "chunk", "content": " answer"}
+    assert done_message["type"] == "done"
+    assert done_message["content"] == "Context-aware answer"
+
+    messages_response = client.get(f"/api/sessions/{session_id}/messages")
+    assert messages_response.status_code == 200
+    assert messages_response.json()[0]["content"] == "What changed after 2024?"
+    assert messages_response.json()[1]["content"] == "Context-aware answer"
+
+
 def test_retry_latest_assistant_message_updates_content(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

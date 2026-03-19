@@ -203,6 +203,7 @@ Example:
 - `mode` supports:
   - `summary`: injects the synthesized answer plus top sources
   - `full`: injects the full `report_markdown`
+- For deeper follow-up, the frontend can also activate a persisted research task as chat context without inserting a new assistant message first.
 
 Possible error cases:
 
@@ -231,8 +232,14 @@ Possible error cases:
 Client payload:
 
 ```json
-{ "content": "user message" }
+{
+  "content": "model prompt",
+  "display_content": "visible user message"
+}
 ```
+
+- `display_content` is optional and defaults to `content`.
+- This allows the frontend to keep the persisted user message readable while sending an augmented prompt to the model for research-grounded follow-up turns.
 
 Server event sequence:
 

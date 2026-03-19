@@ -17,7 +17,11 @@ const mockStore = {
   websocketStatus: 'idle' as 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error',
   websocketStatusLabel: '',
   websocketStatusMessage: '',
+  hasActiveResearchContext: false,
+  activeResearchContextTitle: '',
   sendMessage: vi.fn(),
+  sendFollowUpWithResearchContext: vi.fn(),
+  clearResearchContext: vi.fn(),
   retryAssistantMessage: vi.fn(),
 }
 
@@ -26,9 +30,12 @@ const mockLocaleStore = {
     'chat.selectSession': 'Select a session',
     'chat.empty': 'Select or create a session to start chatting',
     'chat.placeholder': 'Ask about academic papers, research topics, or concepts...',
+    'chat.placeholderWithResearchContext': 'Ask a follow-up based on the active research brief...',
     'chat.sendHint': 'Ctrl+Enter to send',
     'chat.send': 'Send',
     'chat.thinking': 'Thinking...',
+    'chat.researchContextActive': 'Research context active',
+    'chat.clearResearchContext': 'Clear context',
     'chat.status.connecting': 'Connecting',
     'chat.status.reconnecting': 'Reconnecting',
   }[key] ?? key),
@@ -83,7 +90,7 @@ const ElButtonStub = defineComponent({
   },
   emits: ['click'],
   template:
-    '<button data-test="send-button" :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
+    '<button v-bind="$attrs" :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
 })
 
 describe('ChatInterface', () => {
@@ -96,7 +103,11 @@ describe('ChatInterface', () => {
     mockStore.websocketStatus = 'idle'
     mockStore.websocketStatusLabel = ''
     mockStore.websocketStatusMessage = ''
+    mockStore.hasActiveResearchContext = false
+    mockStore.activeResearchContextTitle = ''
     mockStore.sendMessage.mockReset()
+    mockStore.sendFollowUpWithResearchContext.mockReset()
+    mockStore.clearResearchContext.mockReset()
     mockStore.retryAssistantMessage.mockReset()
   })
 
@@ -159,6 +170,34 @@ describe('ChatInterface', () => {
 
     expect(mockStore.sendMessage).toHaveBeenCalledWith('hello world')
     expect((wrapper.get('[data-test="chat-input"]').element as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it('sends follow-up messages through the active research context', async () => {
+    mockStore.currentSession = { id: 1, title: 'Research' }
+    mockStore.hasCurrentSession = true
+    mockStore.hasActiveResearchContext = true
+    mockStore.activeResearchContextTitle = 'transformer scaling laws'
+
+    const wrapper = mount(ChatInterface, {
+      global: {
+        stubs: {
+          MessageItem: true,
+          ElScrollbar: ElScrollbarStub,
+          ElInput: ElInputStub,
+          ElButton: ElButtonStub,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Research context active')
+    expect(wrapper.text()).toContain('transformer scaling laws')
+
+    await wrapper.get('[data-test="chat-input"]').setValue('  compare with diffusion models  ')
+    await wrapper.get('[data-test="send-button"]').trigger('click')
+    await nextTick()
+
+    expect(mockStore.sendFollowUpWithResearchContext).toHaveBeenCalledWith('compare with diffusion models')
+    expect(mockStore.sendMessage).not.toHaveBeenCalled()
   })
 
   it('retries an assistant message from the message list', async () => {
