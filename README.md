@@ -7,7 +7,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Multi-session chat interface for organizing research conversations
 - Built-in Chinese and English UI toggle with persisted locale preference
 - Locale-aware dates, times, and frontend error messages for Chinese and English users
-- Research task workflow with plan, sources, synthesis, and report output
+- Research task workflow with plan, sources, synthesis, and enhanced report export
 - Structured evidence map that links answer claims back to cited sources
 - Research phase progress display for planning, retrieval, synthesis, and completion
 - Local TXT / Markdown document upload for grounding research tasks with user-provided notes
@@ -27,10 +27,11 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Core chat flow is complete across frontend and backend
 - Research task flow is implemented across backend persistence and frontend panels
 - Search, export, and retry enhancements are implemented
-- Frontend tests: `29` passing
+- Frontend tests: `30` passing
 - Backend API tests: `31` passing
 - Retry semantics are intentionally limited to the latest assistant message
 - Research answers now enforce stricter inline source markers such as `[S1]`, and responses expose an evidence map derived from those citations
+- Exported research reports now include a snapshot section, key takeaways, source catalogue, and full synthesis in one Markdown brief
 
 See also:
 - [API reference](docs/api.md)
@@ -130,6 +131,12 @@ The frontend development server default is also configured to use port `4173`, s
 - The research panel can attach one local `TXT` or `Markdown` document to ground a research task.
 - Uploaded local documents are preserved inside the resulting research task, so rerun and rerun-as-new keep the same local context.
 - `PDF` parsing is wired into the backend path, but the runtime still needs the optional `pypdf` dependency installed before PDF uploads can be parsed successfully.
+
+### Research Report Export
+
+- Research report downloads now use a stable `research-brief-*.md` filename format.
+- Exported Markdown includes a report snapshot, key takeaways, research plan, source catalogue, evidence map, and full synthesis.
+- The raw export endpoint returns the same structured Markdown with a download-friendly filename header.
 
 ### Docker Deployment
 

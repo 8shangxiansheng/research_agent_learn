@@ -42,7 +42,7 @@ class ResearchOrchestrator:
     def _build_report_filename(self, query: str) -> str:
         safe = "".join(char.lower() if char.isalnum() else "-" for char in query.strip())
         normalized = "-".join(part for part in safe.split("-") if part)
-        return f"{normalized or 'research-brief'}.md"
+        return f"research-brief-{normalized or 'summary'}.md"
 
     def _annotate_sources(self, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [
@@ -104,6 +104,44 @@ class ResearchOrchestrator:
             )
 
         return evidence_items
+
+    def _build_grounding_mode(self, sources: list[dict[str, Any]]) -> str:
+        """Describe how the report was grounded."""
+        has_local_document = any(
+            source.get("source_type") in {"local_document", "local_pdf"} for source in sources
+        )
+        has_external_sources = any(
+            source.get("source_type") not in {"local_document", "local_pdf"} for source in sources
+        )
+
+        if has_local_document and has_external_sources:
+            return "Local document + external research sources"
+        if has_local_document:
+            return "Local document only"
+        if has_external_sources:
+            return "External research sources only"
+        return "No source grounding available"
+
+    def _build_key_takeaway_lines(
+        self,
+        answer: str,
+        evidence_map: list[dict[str, Any]],
+    ) -> list[str]:
+        """Create a concise report summary section from structured evidence."""
+        if evidence_map:
+            lines = []
+            for item in evidence_map[:5]:
+                labels = ", ".join(f"[{label}]" for label in item["citation_labels"])
+                lines.append(f"- {item['claim']} {labels}".strip())
+            return lines
+
+        first_segment = next(
+            (segment for segment in self._split_claim_segments(answer) if segment.strip()),
+            answer.strip(),
+        )
+        if not first_segment:
+            return ["- No synthesis available."]
+        return [f"- {first_segment.strip()}"]
 
     def _ensure_claim_level_citations(self, answer: str, sources: list[dict[str, Any]]) -> str:
         """Ensure each substantive claim segment carries at least one valid citation."""
@@ -204,16 +242,38 @@ class ResearchOrchestrator:
         answer = await get_agent().ainvoke(prompt)
         return self._ensure_source_citations(answer, sources)
 
-    def build_report(self, query: str, plan: list[str], sources: list[dict[str, Any]], answer: str) -> str:
+    def build_report(
+        self,
+        query: str,
+        plan: list[str],
+        sources: list[dict[str, Any]],
+        answer: str,
+        generated_at: datetime,
+    ) -> str:
         evidence_map = self.build_evidence_map(answer, sources)
+        generated_label = generated_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
         lines = [
             f"# Research Brief: {query}",
             "",
-            "## Research Plan",
+            "## Report Snapshot",
+            "",
+            f"- Generated: {generated_label}",
+            f"- Research Question: {query}",
+            f"- Grounding Mode: {self._build_grounding_mode(sources)}",
+            f"- Total Sources: {len(sources)}",
+            f"- Evidence-Linked Claims: {len(evidence_map)}",
+            "",
+            "## Key Takeaways",
             "",
         ]
+        lines.extend(self._build_key_takeaway_lines(answer, evidence_map))
+        lines.extend([
+            "",
+            "## Research Plan",
+            "",
+        ])
         lines.extend(f"{index}. {step}" for index, step in enumerate(plan, start=1))
-        lines.extend(["", "## Sources", ""])
+        lines.extend(["", "## Source Catalogue", ""])
 
         if not sources:
             lines.append("No sources found.")
@@ -249,7 +309,7 @@ class ResearchOrchestrator:
                 labels = ", ".join(f"[{label}]" for label in item["citation_labels"])
                 lines.append(f"- {item['claim']} {labels}".strip())
 
-        lines.extend(["## Synthesis", "", answer.strip(), ""])
+        lines.extend(["", "## Full Synthesis", "", answer.strip(), ""])
         return "\n".join(lines).strip() + "\n"
 
     async def run(
@@ -258,16 +318,17 @@ class ResearchOrchestrator:
         max_sources: int = 3,
         document: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        generated_at = datetime.now(UTC)
         plan = self.build_plan(query, has_document=document is not None)
         sources = self._annotate_sources(
             self.retrieve_sources(query, max_sources=max_sources, document=document)
         )
         answer = await self.synthesize_answer(query, sources)
-        report_markdown = self.build_report(query, plan, sources, answer)
+        report_markdown = self.build_report(query, plan, sources, answer, generated_at)
         return {
             "query": query,
             "status": "completed",
-            "generated_at": datetime.now(UTC),
+            "generated_at": generated_at,
             "report_filename": self._build_report_filename(query),
             "plan": plan,
             "phase_statuses": self.build_phase_statuses(plan=plan, sources=sources, answer=answer),

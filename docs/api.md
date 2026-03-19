@@ -169,10 +169,18 @@ Example:
 
 ```json
 {
-  "filename": "graph-neural-networks.md",
+  "filename": "research-brief-graph-neural-networks.md",
   "content": "# Research Brief: graph neural networks\n..."
 }
 ```
+
+- The exported Markdown now contains:
+  - `## Report Snapshot`
+  - `## Key Takeaways`
+  - `## Research Plan`
+  - `## Source Catalogue`
+  - `## Evidence Map`
+  - `## Full Synthesis`
 
 `GET /api/research/tasks/{task_id}/report/raw`
 

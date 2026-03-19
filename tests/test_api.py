@@ -380,7 +380,7 @@ def test_research_task_returns_structured_result(
                 "query": query,
                 "status": "completed",
                 "generated_at": "2026-03-19T10:00:00Z",
-                "report_filename": "graph-neural-networks.md",
+                "report_filename": "research-brief-graph-neural-networks.md",
                 "plan": ["Understand the topic", "Retrieve papers", "Write brief"],
                 "sources": [
                     {
@@ -416,7 +416,7 @@ def test_research_task_returns_structured_result(
     assert payload["session_id"] == session_id
     assert payload["query"] == "graph neural networks"
     assert payload["status"] == "completed"
-    assert payload["report_filename"] == "graph-neural-networks.md"
+    assert payload["report_filename"] == "research-brief-graph-neural-networks.md"
     assert payload["plan"] == ["Understand the topic", "Retrieve papers", "Write brief"]
     assert payload["phase_statuses"][0]["phase"] == "planning"
     assert payload["phase_statuses"][-1]["phase"] == "completed"
@@ -556,7 +556,7 @@ def test_update_research_task_renames_query_and_report_filename(
                 "query": query,
                 "status": "completed",
                 "generated_at": "2026-03-19T10:00:00Z",
-                "report_filename": "graph-neural-networks.md",
+                "report_filename": "research-brief-graph-neural-networks.md",
                 "plan": ["Understand the topic"],
                 "sources": [],
                 "answer": "Structured answer. [S1]",
@@ -580,7 +580,7 @@ def test_update_research_task_renames_query_and_report_filename(
 
     assert update_response.status_code == 200
     assert update_response.json()["query"] == "molecular graph learning"
-    assert update_response.json()["report_filename"] == "molecular-graph-learning.md"
+    assert update_response.json()["report_filename"] == "research-brief-molecular-graph-learning.md"
 
     detail_response = client.get(f"/api/research/tasks/{task_id}")
     assert detail_response.status_code == 200
@@ -604,7 +604,7 @@ def test_rerun_research_task_refreshes_persisted_result(
             "query": "graph neural networks",
             "status": "completed",
             "generated_at": "2026-03-19T10:00:00Z",
-            "report_filename": "graph-neural-networks.md",
+            "report_filename": "research-brief-graph-neural-networks.md",
             "plan": ["Understand the topic"],
             "sources": [
                 {
@@ -627,7 +627,7 @@ def test_rerun_research_task_refreshes_persisted_result(
             "query": "graph neural networks",
             "status": "completed",
             "generated_at": "2026-03-19T10:05:00Z",
-            "report_filename": "graph-neural-networks.md",
+            "report_filename": "research-brief-graph-neural-networks.md",
             "plan": ["Refresh the topic"],
             "sources": [
                 {
@@ -771,7 +771,7 @@ def test_rerun_research_task_as_new_creates_new_history_item(
             "query": "graph neural networks",
             "status": "completed",
             "generated_at": "2026-03-19T10:00:00Z",
-            "report_filename": "graph-neural-networks.md",
+            "report_filename": "research-brief-graph-neural-networks.md",
             "plan": ["Understand the topic"],
             "sources": [
                 {
@@ -794,7 +794,7 @@ def test_rerun_research_task_as_new_creates_new_history_item(
             "query": "graph neural networks",
             "status": "completed",
             "generated_at": "2026-03-19T10:10:00Z",
-            "report_filename": "graph-neural-networks.md",
+            "report_filename": "research-brief-graph-neural-networks.md",
             "plan": ["Explore more recent papers"],
             "sources": [
                 {
@@ -913,7 +913,7 @@ def test_export_research_task_report_returns_json_and_raw_markdown(
                 "query": query,
                 "status": "completed",
                 "generated_at": "2026-03-19T10:00:00Z",
-                "report_filename": "graph-neural-networks.md",
+                "report_filename": "research-brief-graph-neural-networks.md",
                 "plan": ["Understand the topic"],
                 "sources": [
                     {
@@ -930,7 +930,37 @@ def test_export_research_task_report_returns_json_and_raw_markdown(
                     }
                 ],
                 "answer": "Graph neural networks improve graph representation learning. [S1]",
-                "report_markdown": "# Research Brief: graph neural networks\n\n## Synthesis\n\nGraph neural networks improve graph representation learning. [S1]\n",
+                "report_markdown": (
+                    "# Research Brief: graph neural networks\n\n"
+                    "## Report Snapshot\n\n"
+                    "- Generated: 2026-03-19 10:00 UTC\n"
+                    "- Research Question: graph neural networks\n"
+                    "- Grounding Mode: External research sources only\n"
+                    "- Total Sources: 1\n"
+                    "- Evidence-Linked Claims: 1\n\n"
+                    "## Key Takeaways\n\n"
+                    "- Graph neural networks improve graph representation learning. [S1]\n\n"
+                    "## Research Plan\n\n"
+                    "1. Understand the topic\n\n"
+                    "## Source Catalogue\n\n"
+                    "### [S1] Graph Neural Networks\n\n"
+                    "- Authors: Author A\n"
+                    "- Published: 2024-01-01\n"
+                    "- Citation: N/A\n"
+                    "- Source Type: arxiv\n"
+                    "- arXiv ID: N/A\n"
+                    "- Primary Category: N/A\n"
+                    "- Categories: N/A\n"
+                    "- Journal Ref: N/A\n"
+                    "- DOI: N/A\n"
+                    "- URL: https://arxiv.org/abs/1234.5678\n"
+                    "- PDF: https://arxiv.org/pdf/1234.5678.pdf\n\n"
+                    "A paper about graph neural networks.\n\n"
+                    "## Evidence Map\n\n"
+                    "- Graph neural networks improve graph representation learning. [S1]\n\n"
+                    "## Full Synthesis\n\n"
+                    "Graph neural networks improve graph representation learning. [S1]\n"
+                ),
             }
 
     monkeypatch.setattr(api_module, "get_research_orchestrator", lambda: FakeResearchOrchestrator())
@@ -945,13 +975,19 @@ def test_export_research_task_report_returns_json_and_raw_markdown(
 
     export_response = client.get(f"/api/research/tasks/{task_id}/report")
     assert export_response.status_code == 200
-    assert export_response.json()["filename"] == "graph-neural-networks.md"
+    assert export_response.json()["filename"] == "research-brief-graph-neural-networks.md"
     assert "[S1]" in export_response.json()["content"]
+    assert "## Report Snapshot" in export_response.json()["content"]
+    assert "## Key Takeaways" in export_response.json()["content"]
+    assert "## Source Catalogue" in export_response.json()["content"]
 
     raw_export_response = client.get(f"/api/research/tasks/{task_id}/report/raw")
     assert raw_export_response.status_code == 200
     assert raw_export_response.text.startswith("# Research Brief: graph neural networks")
-    assert raw_export_response.headers["content-disposition"] == 'attachment; filename="graph-neural-networks.md"'
+    assert "## Full Synthesis" in raw_export_response.text
+    assert raw_export_response.headers["content-disposition"] == (
+        'attachment; filename="research-brief-graph-neural-networks.md"'
+    )
 
 
 def test_export_research_task_report_returns_404_for_unknown_task(client: TestClient) -> None:

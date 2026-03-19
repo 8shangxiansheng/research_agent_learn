@@ -97,7 +97,7 @@ def _build_raw_markdown_response(filename: str, content: str) -> PlainTextRespon
 def _slugify_report_filename(query: str) -> str:
     """Generate a stable report filename from a research query."""
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", query.strip().lower()).strip("-")
-    return f"{slug or 'research-brief'}.md"
+    return f"research-brief-{slug or 'summary'}.md"
 
 
 # ========== Session Endpoints ==========
