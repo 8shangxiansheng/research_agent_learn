@@ -31,6 +31,15 @@ const mockLocaleStore = {
     'research.loading': 'Loading...',
     'research.historySearch': 'Search research history',
     'research.historyEmpty': 'No research tasks for this session yet.',
+    'research.selectAll': 'Select all',
+    'research.bulkDelete': 'Delete Selected',
+    'research.sort.newest': 'Newest First',
+    'research.sort.oldest': 'Oldest First',
+    'research.sort.title': 'Title A-Z',
+    'research.filter.all': 'All Sources',
+    'research.filter.arxiv': 'arXiv Only',
+    'research.filter.crossref': 'Crossref Only',
+    'research.filter.local': 'Local Only',
     'research.evidenceEmpty': 'No structured evidence map yet.',
     'research.rerun': 'Rerun',
     'research.rerunNew': 'Rerun New',
@@ -93,14 +102,22 @@ const mockResearchStore = {
     id: number
     query: string
     generated_at: string
+    sources?: Array<{ source_type?: string }>
   }>,
   filteredTasks: [] as Array<{
     id: number
     query: string
     generated_at: string
+    sources?: Array<{ source_type?: string }>
   }>,
   query: '',
   historyQuery: '',
+  historySort: 'newest',
+  historySourceFilter: 'all',
+  selectedTaskIds: [] as number[],
+  selectedCount: 0,
+  hasSelectedTasks: false,
+  allFilteredSelected: false,
   isRunning: false,
   isLoadingHistory: false,
   visiblePhaseStatuses: [] as Array<{
@@ -112,10 +129,33 @@ const mockResearchStore = {
   runTask: vi.fn(),
   fetchTasks: vi.fn(),
   selectTask: vi.fn(),
+  isTaskSelected: vi.fn((taskId: number) => mockResearchStore.selectedTaskIds.includes(taskId)),
+  toggleTaskSelection: vi.fn((taskId: number) => {
+    mockResearchStore.selectedTaskIds = mockResearchStore.selectedTaskIds.includes(taskId)
+      ? mockResearchStore.selectedTaskIds.filter(id => id !== taskId)
+      : [...mockResearchStore.selectedTaskIds, taskId]
+    mockResearchStore.selectedCount = mockResearchStore.selectedTaskIds.length
+    mockResearchStore.hasSelectedTasks = mockResearchStore.selectedCount > 0
+  }),
+  setAllFilteredSelected: vi.fn((selected: boolean) => {
+    mockResearchStore.selectedTaskIds = selected
+      ? mockResearchStore.filteredTasks.map(task => task.id)
+      : []
+    mockResearchStore.selectedCount = mockResearchStore.selectedTaskIds.length
+    mockResearchStore.hasSelectedTasks = mockResearchStore.selectedCount > 0
+    mockResearchStore.allFilteredSelected = selected
+  }),
+  clearSelection: vi.fn(() => {
+    mockResearchStore.selectedTaskIds = []
+    mockResearchStore.selectedCount = 0
+    mockResearchStore.hasSelectedTasks = false
+    mockResearchStore.allFilteredSelected = false
+  }),
   renameTask: vi.fn(),
   rerunTask: vi.fn(),
   rerunTaskAsNew: vi.fn(),
   removeTask: vi.fn(),
+  bulkRemoveSelectedTasks: vi.fn(),
   clearTask: vi.fn(),
 }
 
@@ -149,6 +189,12 @@ describe('ResearchPanel', () => {
     mockResearchStore.filteredTasks = []
     mockResearchStore.query = ''
     mockResearchStore.historyQuery = ''
+    mockResearchStore.historySort = 'newest'
+    mockResearchStore.historySourceFilter = 'all'
+    mockResearchStore.selectedTaskIds = []
+    mockResearchStore.selectedCount = 0
+    mockResearchStore.hasSelectedTasks = false
+    mockResearchStore.allFilteredSelected = false
     mockResearchStore.isRunning = false
     mockResearchStore.isLoadingHistory = false
     mockResearchStore.visiblePhaseStatuses = []
@@ -158,10 +204,15 @@ describe('ResearchPanel', () => {
     mockResearchStore.runTask.mockReset()
     mockResearchStore.fetchTasks.mockReset()
     mockResearchStore.selectTask.mockReset()
+    mockResearchStore.isTaskSelected.mockClear()
+    mockResearchStore.toggleTaskSelection.mockClear()
+    mockResearchStore.setAllFilteredSelected.mockClear()
+    mockResearchStore.clearSelection.mockClear()
     mockResearchStore.renameTask.mockReset()
     mockResearchStore.rerunTask.mockReset()
     mockResearchStore.rerunTaskAsNew.mockReset()
     mockResearchStore.removeTask.mockReset()
+    mockResearchStore.bulkRemoveSelectedTasks.mockReset()
     mockResearchStore.clearTask.mockReset()
     downloadResearchTaskReportMock.mockReset()
   })
@@ -424,6 +475,69 @@ describe('ResearchPanel', () => {
 
     await wrapper.get('.history-item').trigger('click')
     expect(mockResearchStore.selectTask).toHaveBeenCalledWith(mockResearchStore.tasks[0])
+  })
+
+  it('applies sort and source filter controls for research history', async () => {
+    mockChatStore.currentSession = { id: 3, title: 'Session 3' }
+    mockResearchStore.tasks = [
+      { id: 9, query: 'attention mechanisms', generated_at: '2026-03-19T10:00:00Z', sources: [{ source_type: 'arxiv' }] },
+      { id: 10, query: 'metadata enrichment', generated_at: '2026-03-18T10:00:00Z', sources: [{ source_type: 'crossref' }] },
+    ]
+    mockResearchStore.filteredTasks = mockResearchStore.tasks
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': {
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            template: '<input data-test="history-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+          },
+          'el-button': {
+            template: '<button><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('[data-test="history-source-filter"]').setValue('crossref')
+    await wrapper.get('[data-test="history-sort"]').setValue('title')
+
+    expect(mockResearchStore.historySourceFilter).toBe('crossref')
+    expect(mockResearchStore.historySort).toBe('title')
+  })
+
+  it('supports selecting all and bulk deleting history items', async () => {
+    mockChatStore.currentSession = { id: 3, title: 'Session 3' }
+    mockResearchStore.tasks = [
+      { id: 9, query: 'attention mechanisms', generated_at: '2026-03-19T10:00:00Z' },
+      { id: 10, query: 'metadata enrichment', generated_at: '2026-03-18T10:00:00Z' },
+    ]
+    mockResearchStore.filteredTasks = mockResearchStore.tasks
+    mockResearchStore.selectedTaskIds = [9, 10]
+    mockResearchStore.selectedCount = 2
+    mockResearchStore.hasSelectedTasks = true
+
+    const wrapper = mount(ResearchPanel, {
+      global: {
+        stubs: {
+          'el-input': {
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            template: '<input data-test="history-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+          },
+          'el-button': {
+            template: '<button><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('[data-test="history-select-all"]').setValue(true)
+    expect(mockResearchStore.setAllFilteredSelected).toHaveBeenCalledWith(true)
+
+    await wrapper.get('[data-test="bulk-delete-history"]').trigger('click')
+    expect(mockResearchStore.bulkRemoveSelectedTasks).toHaveBeenCalled()
   })
 
   it('deletes a task from research history', async () => {

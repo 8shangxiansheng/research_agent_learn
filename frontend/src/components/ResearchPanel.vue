@@ -104,6 +104,45 @@
         <h4>{{ localeStore.t('research.history') }}</h4>
         <span v-if="researchStore.isLoadingHistory">{{ localeStore.t('research.loading') }}</span>
       </div>
+      <div class="history-toolbar">
+        <label class="history-select-all">
+          <input
+            data-test="history-select-all"
+            type="checkbox"
+            :checked="researchStore.allFilteredSelected"
+            @change="toggleSelectAll($event)"
+          >
+          <span>{{ localeStore.t('research.selectAll') }}</span>
+        </label>
+        <select
+          v-model="researchStore.historySourceFilter"
+          data-test="history-source-filter"
+          class="history-filter"
+        >
+          <option value="all">{{ localeStore.t('research.filter.all') }}</option>
+          <option value="arxiv">{{ localeStore.t('research.filter.arxiv') }}</option>
+          <option value="crossref">{{ localeStore.t('research.filter.crossref') }}</option>
+          <option value="local">{{ localeStore.t('research.filter.local') }}</option>
+        </select>
+        <select
+          v-model="researchStore.historySort"
+          data-test="history-sort"
+          class="history-filter"
+        >
+          <option value="newest">{{ localeStore.t('research.sort.newest') }}</option>
+          <option value="oldest">{{ localeStore.t('research.sort.oldest') }}</option>
+          <option value="title">{{ localeStore.t('research.sort.title') }}</option>
+        </select>
+        <button
+          type="button"
+          data-test="bulk-delete-history"
+          class="history-bulk-delete"
+          :disabled="!researchStore.hasSelectedTasks"
+          @click="bulkRemoveTasks"
+        >
+          {{ localeStore.t('research.bulkDelete') }} ({{ researchStore.selectedCount }})
+        </button>
+      </div>
       <el-input
         v-model="researchStore.historyQuery"
         class="history-search"
@@ -114,42 +153,56 @@
         {{ localeStore.t('research.historyEmpty') }}
       </div>
       <div v-else class="history-list">
-        <button
+        <div
           v-for="task in researchStore.filteredTasks"
           :key="task.id"
-          type="button"
-          :class="['history-item', { active: researchStore.currentTask?.id === task.id }]"
-          @click="researchStore.selectTask(task)"
+          :class="['history-item-shell', { active: researchStore.currentTask?.id === task.id }]"
         >
-          <strong>{{ task.query }}</strong>
-          <div class="history-item-row">
-            <span>{{ formatTaskDate(task.generated_at) }}</span>
-            <span
-              class="history-rerun"
-              @click.stop="rerunTask(task.id)"
+          <label class="history-check">
+            <input
+              :checked="researchStore.isTaskSelected(task.id)"
+              :data-task-id="task.id"
+              data-test="history-checkbox"
+              type="checkbox"
+              @click.stop
+              @change="researchStore.toggleTaskSelection(task.id)"
             >
-              {{ localeStore.t('research.rerun') }}
-            </span>
-            <span
-              class="history-rerun-new"
-              @click.stop="rerunTaskAsNew(task.id)"
-            >
-              {{ localeStore.t('research.rerunNew') }}
-            </span>
-            <span
-              class="history-rename"
-              @click.stop="renameTask(task.id, task.query)"
-            >
-              {{ localeStore.t('research.rename') }}
-            </span>
-            <span
-              class="history-delete"
-              @click.stop="removeTask(task.id)"
-            >
-              {{ localeStore.t('research.delete') }}
-            </span>
-          </div>
-        </button>
+          </label>
+          <button
+            type="button"
+            :class="['history-item', { active: researchStore.currentTask?.id === task.id }]"
+            @click="researchStore.selectTask(task)"
+          >
+            <strong>{{ task.query }}</strong>
+            <div class="history-item-row">
+              <span>{{ formatTaskDate(task.generated_at) }}</span>
+              <span
+                class="history-rerun"
+                @click.stop="rerunTask(task.id)"
+              >
+                {{ localeStore.t('research.rerun') }}
+              </span>
+              <span
+                class="history-rerun-new"
+                @click.stop="rerunTaskAsNew(task.id)"
+              >
+                {{ localeStore.t('research.rerunNew') }}
+              </span>
+              <span
+                class="history-rename"
+                @click.stop="renameTask(task.id, task.query)"
+              >
+                {{ localeStore.t('research.rename') }}
+              </span>
+              <span
+                class="history-delete"
+                @click.stop="removeTask(task.id)"
+              >
+                {{ localeStore.t('research.delete') }}
+              </span>
+            </div>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -298,6 +351,10 @@ async function removeTask(taskId: number): Promise<void> {
   await researchStore.removeTask(taskId)
 }
 
+async function bulkRemoveTasks(): Promise<void> {
+  await researchStore.bulkRemoveSelectedTasks()
+}
+
 async function renameTask(taskId: number, currentQuery: string): Promise<void> {
   const nextQuery = window.prompt(localeStore.t('research.renamePrompt'), currentQuery)
   if (nextQuery === null) {
@@ -341,6 +398,11 @@ function formatSourceType(sourceType: string): string {
   const key = `research.sourceType.${sourceType}`
   const translated = localeStore.t(key)
   return translated === key ? sourceType : translated
+}
+
+function toggleSelectAll(event: Event): void {
+  const target = event.target as HTMLInputElement
+  researchStore.setAllFilteredSelected(target.checked)
 }
 
 function isRemoteSource(url: string): boolean {
@@ -568,10 +630,64 @@ watch(
   margin-bottom: 10px;
 }
 
+.history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.history-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.history-filter {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.history-bulk-delete {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.history-bulk-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .history-list {
   display: flex;
   gap: 8px;
   overflow-x: auto;
+}
+
+.history-item-shell {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.history-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 10px;
 }
 
 .history-item {

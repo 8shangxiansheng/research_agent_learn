@@ -7,6 +7,8 @@ import { useLocaleStore } from '@/stores/locale'
 import { resolveLocalizedErrorMessage } from '@/utils/localization'
 
 const DEFAULT_PHASE_SEQUENCE: ResearchPhaseStatus['phase'][] = ['planning', 'retrieving', 'synthesizing', 'completed']
+type ResearchHistorySort = 'newest' | 'oldest' | 'title'
+type ResearchHistorySourceFilter = 'all' | 'arxiv' | 'crossref' | 'local'
 
 export const useResearchStore = defineStore('research', () => {
   const localeStore = useLocaleStore()
@@ -14,18 +16,54 @@ export const useResearchStore = defineStore('research', () => {
   const tasks = ref<ResearchTaskResult[]>([])
   const query = ref('')
   const historyQuery = ref('')
+  const historySort = ref<ResearchHistorySort>('newest')
+  const historySourceFilter = ref<ResearchHistorySourceFilter>('all')
+  const selectedTaskIds = ref<number[]>([])
   const isRunning = ref(false)
   const isLoadingHistory = ref(false)
   const error = ref<string | null>(null)
   const phaseStatuses = ref<ResearchPhaseStatus[]>([])
   let phaseTimer: ReturnType<typeof setTimeout> | null = null
-  const filteredTasks = computed(() => {
-    const normalizedQuery = historyQuery.value.trim().toLowerCase()
-    if (!normalizedQuery) {
-      return tasks.value
+
+  const selectedCount = computed(() => selectedTaskIds.value.length)
+  const hasSelectedTasks = computed(() => selectedCount.value > 0)
+  const allFilteredSelected = computed(() => (
+    filteredTasks.value.length > 0
+    && filteredTasks.value.every(task => selectedTaskIds.value.includes(task.id))
+  ))
+
+  function matchesSourceFilter(task: ResearchTaskResult, filter: ResearchHistorySourceFilter): boolean {
+    if (filter === 'all') {
+      return true
     }
 
-    return tasks.value.filter(task => task.query.toLowerCase().includes(normalizedQuery))
+    const sourceTypes = new Set(task.sources.map(source => source.source_type))
+    if (filter === 'local') {
+      return sourceTypes.has('local_document') || sourceTypes.has('local_pdf')
+    }
+    return sourceTypes.has(filter)
+  }
+
+  function sortTasks(items: ResearchTaskResult[], sortBy: ResearchHistorySort): ResearchTaskResult[] {
+    return [...items].sort((left, right) => {
+      if (sortBy === 'title') {
+        return left.query.localeCompare(right.query)
+      }
+      const leftTime = new Date(left.generated_at).getTime()
+      const rightTime = new Date(right.generated_at).getTime()
+      return sortBy === 'oldest' ? leftTime - rightTime : rightTime - leftTime
+    })
+  }
+
+  const filteredTasks = computed(() => {
+    const normalizedQuery = historyQuery.value.trim().toLowerCase()
+    const matchedTasks = tasks.value.filter(task => {
+      if (normalizedQuery && !task.query.toLowerCase().includes(normalizedQuery)) {
+        return false
+      }
+      return matchesSourceFilter(task, historySourceFilter.value)
+    })
+    return sortTasks(matchedTasks, historySort.value)
   })
   const visiblePhaseStatuses = computed(() => {
     if (isRunning.value || phaseStatuses.value.length > 0) {
@@ -128,6 +166,7 @@ export const useResearchStore = defineStore('research', () => {
     if (!sessionId) {
       tasks.value = []
       currentTask.value = null
+      selectedTaskIds.value = []
       return
     }
 
@@ -136,6 +175,7 @@ export const useResearchStore = defineStore('research', () => {
       error.value = null
       tasks.value = await getSessionResearchTasks(sessionId)
       currentTask.value = tasks.value[0] ?? null
+      selectedTaskIds.value = []
     } catch (e) {
       error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.fetchHistory')
       console.error(e)
@@ -148,16 +188,60 @@ export const useResearchStore = defineStore('research', () => {
     currentTask.value = task
   }
 
+  function isTaskSelected(taskId: number): boolean {
+    return selectedTaskIds.value.includes(taskId)
+  }
+
+  function toggleTaskSelection(taskId: number): void {
+    selectedTaskIds.value = isTaskSelected(taskId)
+      ? selectedTaskIds.value.filter(id => id !== taskId)
+      : [...selectedTaskIds.value, taskId]
+  }
+
+  function setAllFilteredSelected(selected: boolean): void {
+    if (selected) {
+      selectedTaskIds.value = filteredTasks.value.map(task => task.id)
+      return
+    }
+    selectedTaskIds.value = []
+  }
+
+  function clearSelection(): void {
+    selectedTaskIds.value = []
+  }
+
   async function removeTask(taskId: number): Promise<void> {
     try {
       error.value = null
       await deleteResearchTask(taskId)
       tasks.value = tasks.value.filter(task => task.id !== taskId)
+      selectedTaskIds.value = selectedTaskIds.value.filter(id => id !== taskId)
       if (currentTask.value?.id === taskId) {
         currentTask.value = tasks.value[0] ?? null
       }
     } catch (e) {
       error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.delete')
+      console.error(e)
+      throw e
+    }
+  }
+
+  async function bulkRemoveSelectedTasks(): Promise<void> {
+    if (!selectedTaskIds.value.length) {
+      return
+    }
+
+    try {
+      error.value = null
+      const idsToDelete = [...selectedTaskIds.value]
+      await Promise.all(idsToDelete.map(taskId => deleteResearchTask(taskId)))
+      tasks.value = tasks.value.filter(task => !idsToDelete.includes(task.id))
+      if (currentTask.value && idsToDelete.includes(currentTask.value.id)) {
+        currentTask.value = tasks.value[0] ?? null
+      }
+      selectedTaskIds.value = []
+    } catch (e) {
+      error.value = resolveLocalizedErrorMessage(e, localeStore, 'research.error.bulkDelete')
       console.error(e)
       throw e
     }
@@ -235,6 +319,12 @@ export const useResearchStore = defineStore('research', () => {
     filteredTasks,
     query,
     historyQuery,
+    historySort,
+    historySourceFilter,
+    selectedTaskIds,
+    selectedCount,
+    hasSelectedTasks,
+    allFilteredSelected,
     isRunning,
     isLoadingHistory,
     error,
@@ -243,10 +333,15 @@ export const useResearchStore = defineStore('research', () => {
     runTask,
     fetchTasks,
     selectTask,
+    isTaskSelected,
+    toggleTaskSelection,
+    setAllFilteredSelected,
+    clearSelection,
     renameTask,
     rerunTask,
     rerunTaskAsNew,
     removeTask,
+    bulkRemoveSelectedTasks,
     clearTask,
   }
 })

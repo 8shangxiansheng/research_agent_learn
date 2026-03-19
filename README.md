@@ -12,7 +12,7 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 - Research phase progress display for planning, retrieval, synthesis, and completion
 - Local TXT / Markdown document upload for grounding research tasks with user-provided notes
 - Mixed-source research retrieval with arXiv papers plus Crossref metadata enrichment
-- Research history per session with rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
+- Research history per session with search, source filtering, sorting, selection, bulk delete, rerun-in-place, rerun-as-new, rename, share-to-chat, and report export
 - Session title search for quickly filtering conversations
 - Session export to Markdown for note taking and sharing
 - Assistant answer retry for regenerating the latest response in place
