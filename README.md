@@ -5,11 +5,26 @@ A full-stack application for academic paper research and Q&A, powered by LangCha
 ## Features
 
 - Multi-session chat interface for organizing research conversations
+- Session title search for quickly filtering conversations
+- Session export to Markdown for note taking and sharing
+- Assistant answer retry for regenerating the latest response in place
 - Real-time streaming responses via WebSocket
 - arXiv paper search integration
 - Modern Vue3 + ElementPlus frontend
 - FastAPI backend with SQLAlchemy ORM
 - Docker deployment support
+
+## Current Status
+
+- Core chat flow is complete across frontend and backend
+- Search, export, and retry enhancements are implemented
+- Frontend component tests: `11` passing
+- Backend API tests: `11` passing
+- Retry semantics are intentionally limited to the latest assistant message
+
+See also:
+- [API reference](docs/api.md)
+- [Retry decision note](docs/retry-decision.md)
 
 ## Architecture
 
@@ -120,13 +135,23 @@ docker-compose down
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/sessions | List all sessions |
+| GET | /api/sessions | List all sessions, optional `query` filters by title |
 | POST | /api/sessions | Create new session |
 | GET | /api/sessions/{id} | Get session with messages |
 | PUT | /api/sessions/{id} | Update session title |
 | DELETE | /api/sessions/{id} | Delete session |
 | GET | /api/sessions/{id}/messages | Get session messages |
+| GET | /api/sessions/{id}/export | Export session as Markdown payload |
+| GET | /api/sessions/{id}/export/raw | Download raw Markdown content |
+| POST | /api/sessions/{id}/messages/{message_id}/retry | Regenerate the latest assistant message |
 | POST | /api/messages | Create message |
+
+### Key Product Rules
+
+- Session search only matches session titles
+- Export keeps message order and role sections in Markdown
+- Retry only applies to the latest assistant message in a session
+- Retry updates the existing assistant message instead of creating a new record
 
 ### WebSocket
 
@@ -159,6 +184,9 @@ uvicorn app.main:app --reload
 
 # Run tests
 pytest
+
+# Or use the local Conda environment
+/Users/syj/miniconda3/bin/conda run -n agent-dev python -m pytest -q
 ```
 
 ### Frontend
@@ -174,6 +202,9 @@ npm run build
 
 # Preview build
 npm run preview
+
+# Run tests
+npm test
 ```
 
 ## License
