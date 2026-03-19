@@ -104,6 +104,8 @@ cd frontend
 npm run dev -- --host 127.0.0.1 --port 4173
 ```
 
+The frontend development server default is also configured to use port `4173`, so `npm run dev` and `bash scripts/dev-up.sh` stay aligned.
+
 7. Open http://127.0.0.1:4173 in browser
 
 ### Docker Deployment
